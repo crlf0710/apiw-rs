@@ -1,0 +1,12 @@
+[package]
+name = "apiw"
+version = "0.1.0"
+authors = ["CrLF0710 <crlf0710@gmail.com>"]
+
+[dependencies]
+bitflags = "1"
+winapi = {version = "0.3", features = ["winuser", "libloaderapi"]}
+wio = "0.2"
+derive_more = "0.11"
+enum-primitive-derive = "0.1"
+num-traits = "0.2"

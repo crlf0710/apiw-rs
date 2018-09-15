@@ -1,0 +1,429 @@
+use winapi::ctypes::c_int;
+use winapi::shared::minwindef::{ATOM, HINSTANCE};
+use winapi::shared::minwindef::{DWORD, LPVOID, UINT, WORD};
+use winapi::shared::minwindef::{LPARAM, LRESULT, WPARAM};
+use winapi::shared::windef::HBRUSH;
+use winapi::shared::windef::HCURSOR;
+use winapi::shared::windef::HICON;
+use winapi::shared::windef::HMENU;
+use winapi::shared::windef::HWND;
+use winapi::um::winuser::WNDPROC;
+use wio::error::last_error;
+use wio::Result;
+
+use utils::booleanize;
+use utils::exe_instance;
+use utils::CWideString;
+use utils::{Handle, Permanent, Temporary};
+
+pub enum WindowClass {
+    Atom(ATOM),
+    String(CWideString),
+}
+
+impl WindowClass {
+    fn as_ptr_or_atom_ptr(&self) -> *const u16 {
+        match self {
+            WindowClass::Atom(atom) => *atom as _,
+            WindowClass::String(str) => str.as_ptr(),
+        }
+    }
+}
+
+impl Handle for WindowClass {}
+
+enum ResourceIDOrIDString {
+    ID(WORD),
+    String(CWideString),
+}
+
+impl ResourceIDOrIDString {
+    fn as_ptr_or_int_ptr(&self) -> *const u16 {
+        use winapi::um::winuser::MAKEINTRESOURCEW;
+        match self {
+            ResourceIDOrIDString::ID(id) => MAKEINTRESOURCEW(*id),
+            ResourceIDOrIDString::String(str) => str.as_ptr(),
+        }
+    }
+}
+
+#[derive(Into)]
+pub struct SysColor(c_int);
+
+impl SysColor {
+    pub const THREE_DIM_DARK_SHADOW : SysColor = SysColor(::winapi::um::winuser::COLOR_3DDKSHADOW);
+    pub const THREE_DIM_FACE : SysColor = SysColor(::winapi::um::winuser::COLOR_3DFACE);
+    pub const THREE_DIM_HIGHLIGHT : SysColor = SysColor(::winapi::um::winuser::COLOR_3DHIGHLIGHT);
+    pub const THREE_DIM_HILIGHT : SysColor = SysColor(::winapi::um::winuser::COLOR_3DHILIGHT);
+    pub const THREE_DIM_LIGHT : SysColor = SysColor(::winapi::um::winuser::COLOR_3DLIGHT);
+    pub const THREE_DIM_SHADOW : SysColor = SysColor(::winapi::um::winuser::COLOR_3DSHADOW);
+    pub const ACTIVE_BORDER : SysColor = SysColor(::winapi::um::winuser::COLOR_ACTIVEBORDER);
+    pub const ACTIVE_CAPTION : SysColor = SysColor(::winapi::um::winuser::COLOR_ACTIVECAPTION);
+    pub const APP_WORKSPACE : SysColor = SysColor(::winapi::um::winuser::COLOR_APPWORKSPACE);
+    pub const BACKGROUND : SysColor = SysColor(::winapi::um::winuser::COLOR_BACKGROUND);
+    pub const BUTTON_FACE : SysColor = SysColor(::winapi::um::winuser::COLOR_BTNFACE);
+    pub const BUTTON_HIGHLIGHT : SysColor = SysColor(::winapi::um::winuser::COLOR_BTNHIGHLIGHT);
+    pub const BUTTON_HILIGHT : SysColor = SysColor(::winapi::um::winuser::COLOR_BTNHILIGHT);
+    pub const BUTTON_SHADOW : SysColor = SysColor(::winapi::um::winuser::COLOR_BTNSHADOW);
+    pub const BUTTON_TEXT : SysColor = SysColor(::winapi::um::winuser::COLOR_BTNTEXT);
+    pub const CAPTION_TEXT : SysColor = SysColor(::winapi::um::winuser::COLOR_CAPTIONTEXT);
+    pub const DESKTOP : SysColor = SysColor(::winapi::um::winuser::COLOR_DESKTOP);
+    pub const GRADIENT_ACTIVE_CAPTION : SysColor = SysColor(::winapi::um::winuser::COLOR_GRADIENTACTIVECAPTION);
+    pub const GRADIENT_INACTIVE_CAPTION : SysColor = SysColor(::winapi::um::winuser::COLOR_GRADIENTINACTIVECAPTION);
+    pub const GRAY_TEXT : SysColor = SysColor(::winapi::um::winuser::COLOR_GRAYTEXT);
+    pub const HIGHLIGHT : SysColor = SysColor(::winapi::um::winuser::COLOR_HIGHLIGHT);
+    pub const HIGHLIGHT_TEXT : SysColor = SysColor(::winapi::um::winuser::COLOR_HIGHLIGHTTEXT);
+    pub const HOTLIGHT : SysColor = SysColor(::winapi::um::winuser::COLOR_HOTLIGHT);
+    pub const INACTIVE_BORDER : SysColor = SysColor(::winapi::um::winuser::COLOR_INACTIVEBORDER);
+    pub const INACTIVE_CAPTION : SysColor = SysColor(::winapi::um::winuser::COLOR_INACTIVECAPTION);
+    pub const INACTIVE_CAPTION_TEXT : SysColor = SysColor(::winapi::um::winuser::COLOR_INACTIVECAPTIONTEXT);
+    pub const INFO_BACKGROUND : SysColor = SysColor(::winapi::um::winuser::COLOR_INFOBK);
+    pub const INFO_TEXT : SysColor = SysColor(::winapi::um::winuser::COLOR_INFOTEXT);
+    pub const MENU : SysColor = SysColor(::winapi::um::winuser::COLOR_MENU);
+    pub const MENU_BAR : SysColor = SysColor(::winapi::um::winuser::COLOR_MENUBAR);
+    pub const MENU_HILIGHT : SysColor = SysColor(::winapi::um::winuser::COLOR_MENUHILIGHT);
+    pub const MENU_TEXT : SysColor = SysColor(::winapi::um::winuser::COLOR_MENUTEXT);
+    pub const SCROLL_BAR : SysColor = SysColor(::winapi::um::winuser::COLOR_SCROLLBAR);
+    pub const WINDOW : SysColor = SysColor(::winapi::um::winuser::COLOR_WINDOW);
+    pub const WINDOW_FRAME : SysColor = SysColor(::winapi::um::winuser::COLOR_WINDOWFRAME);
+    pub const WINDOW_TEXT : SysColor = SysColor(::winapi::um::winuser::COLOR_WINDOWTEXT);
+}
+
+#[derive(Into)]
+pub struct SysCursor(::winapi::shared::ntdef::LPCWSTR);
+
+impl SysCursor {
+    pub const ARROW: SysCursor = SysCursor(::winapi::um::winuser::IDC_ARROW);
+    pub const I_BEAM: SysCursor = SysCursor(::winapi::um::winuser::IDC_IBEAM);
+    pub const WAIT: SysCursor = SysCursor(::winapi::um::winuser::IDC_WAIT);
+    pub const CROSS: SysCursor = SysCursor(::winapi::um::winuser::IDC_CROSS);
+    pub const UPARROW: SysCursor = SysCursor(::winapi::um::winuser::IDC_UPARROW);
+    pub const SIZE: SysCursor = SysCursor(::winapi::um::winuser::IDC_SIZE);
+    pub const ICON: SysCursor = SysCursor(::winapi::um::winuser::IDC_ICON);
+    pub const SIZE_NWSE: SysCursor = SysCursor(::winapi::um::winuser::IDC_SIZENWSE);
+    pub const SIZE_NESW: SysCursor = SysCursor(::winapi::um::winuser::IDC_SIZENESW);
+    pub const SIZE_WE: SysCursor = SysCursor(::winapi::um::winuser::IDC_SIZEWE);
+    pub const SIZE_NS: SysCursor = SysCursor(::winapi::um::winuser::IDC_SIZENS);
+    pub const SIZE_ALL: SysCursor = SysCursor(::winapi::um::winuser::IDC_SIZEALL);
+    pub const NO: SysCursor = SysCursor(::winapi::um::winuser::IDC_NO);
+    pub const HAND: SysCursor = SysCursor(::winapi::um::winuser::IDC_HAND);
+    pub const APP_STARTING: SysCursor = SysCursor(::winapi::um::winuser::IDC_APPSTARTING);
+    pub const HELP: SysCursor = SysCursor(::winapi::um::winuser::IDC_HELP);
+}
+
+enum OwnedBrushOrSystemColor {
+    OwnedBrush(HBRUSH),
+    SystemColor(c_int),
+}
+
+// FIXME: Drop issue.
+impl OwnedBrushOrSystemColor {
+    fn as_brush_or_int_brush(&self) -> HBRUSH {
+        match self {
+            OwnedBrushOrSystemColor::OwnedBrush(brush) => *brush,
+            OwnedBrushOrSystemColor::SystemColor(clr) => (*clr + 1) as usize as _,
+        }
+    }
+}
+
+pub struct WindowClassBuilder {
+    name: CWideString,
+    style: UINT,
+    instance: HINSTANCE,
+    class_extra_size: c_int,
+    window_extra_size: c_int,
+    icon: (Option<HICON>, Option<HICON>),
+    background_brush: Option<OwnedBrushOrSystemColor>,
+    cursor: Option<HCURSOR>,
+    menu: Option<ResourceIDOrIDString>,
+    window_proc: WNDPROC,
+}
+
+type WndProcInner = unsafe extern "system" fn(_: HWND, _: UINT, _: WPARAM, _: LPARAM) -> LRESULT;
+
+impl WindowClassBuilder {
+    pub fn new(name: &str) -> Self {
+        WindowClassBuilder {
+            name: name.into(),
+            style: 0,
+            instance: exe_instance(),
+            class_extra_size: 0,
+            window_extra_size: 0,
+            icon: (None, None),
+            background_brush: None,
+            cursor: None,
+            menu: None,
+            window_proc: Some(::winapi::um::winuser::DefWindowProcW),
+        }
+    }
+
+    pub fn window_proc(mut self, wnd_proc: WndProcInner) -> Self {
+        self.window_proc = Some(wnd_proc);
+        self
+    }
+
+    pub fn syscolor_background_brush(mut self, syscolor: SysColor) -> Self {
+        self.background_brush = Some(OwnedBrushOrSystemColor::SystemColor(syscolor.into()));
+        self
+    }
+
+    pub fn syscursor(mut self, syscursor: SysCursor) -> Self {
+        use winapi::um::winuser::LoadCursorW;
+        use std::ptr::null_mut;
+
+        self.cursor = Some(unsafe {
+            //FIXME is this properly released?
+            LoadCursorW(null_mut(), syscursor.into())
+        });
+        self
+    }
+
+    pub fn create_permanent(self) -> Result<Permanent<WindowClass>> {
+        use std::ptr::{null, null_mut};
+        use winapi::um::winuser::RegisterClassExW;
+        use winapi::um::winuser::WNDCLASSEXW;
+
+        let window_class = unsafe {
+            let wcex = WNDCLASSEXW {
+                cbSize: ::std::mem::size_of::<WNDCLASSEXW>() as _,
+                style: self.style,
+                hInstance: self.instance,
+                cbClsExtra: self.class_extra_size,
+                cbWndExtra: self.window_extra_size,
+                hIcon: self.icon.0.unwrap_or_else(null_mut),
+                hIconSm: self.icon.1.unwrap_or_else(null_mut),
+                hbrBackground: self
+                    .background_brush
+                    .as_ref()
+                    .map_or_else(null_mut, OwnedBrushOrSystemColor::as_brush_or_int_brush),
+                hCursor: self.cursor.unwrap_or_else(null_mut),
+                lpszClassName: self.name.as_ptr(),
+                lpszMenuName: self
+                    .menu
+                    .as_ref()
+                    .map_or_else(null, ResourceIDOrIDString::as_ptr_or_int_ptr),
+                lpfnWndProc: self.window_proc,
+            };
+            let h = RegisterClassExW(&wcex);
+            if h == 0 {
+                return last_error();
+            }
+            WindowClass::Atom(h)
+        };
+        Ok(Permanent::attach(window_class))
+    }
+}
+
+/*
+	WNDCLASSEX wcex;
+
+	wcex.cbSize = sizeof(WNDCLASSEX);
+
+	wcex.style			= CS_HREDRAW | CS_VREDRAW;
+	wcex.lpfnWndProc	= WndProc;
+	wcex.cbClsExtra		= 0;
+	wcex.cbWndExtra		= 0;
+	wcex.hInstance		= hInstance;
+	wcex.hIcon			= LoadIcon(hInstance, MAKEINTRESOURCE(IDI_CHARLESMINE));
+	wcex.hCursor		= LoadCursor(NULL, IDC_ARROW);
+	wcex.hbrBackground	= (HBRUSH)(COLOR_BTNFACE+1);
+	wcex.lpszMenuName	= MAKEINTRESOURCE(IDC_CHARLESMINE);
+	wcex.lpszClassName	= szWindowClass;
+	wcex.hIconSm		= wcex.hIcon;
+
+	return RegisterClassEx(&wcex);
+    */
+
+enum MenuOrChildWindowId {
+    Menu(HMENU),
+    ChildWindowId(WORD),
+}
+
+impl MenuOrChildWindowId {
+    fn as_either_ptr(&self) -> HMENU {
+        match self {
+            MenuOrChildWindowId::Menu(menu) => *menu,
+            MenuOrChildWindowId::ChildWindowId(id) => *id as usize as _,
+        }
+    }
+}
+
+pub struct Window(HWND);
+
+impl Window {
+    pub fn raw_handle(&self) -> HWND {
+        self.0
+    }
+}
+
+impl Handle for Window {
+
+}
+
+pub struct WindowBuilder<'a, 'b> {
+    class: &'a WindowClass,
+    parent: Option<&'b Window>,
+    name: Option<CWideString>,
+    menu: Option<MenuOrChildWindowId>,
+    instance: HINSTANCE,
+    style: (DWORD, DWORD),
+    position: Option<(c_int, c_int)>,
+    size: Option<(c_int, c_int)>,
+    param: LPVOID,
+}
+
+impl<'a, 'b> WindowBuilder<'a, 'b> {
+    pub fn new<WC: AsRef<WindowClass>>(window_class: &'a WC) -> Self {
+        Self {
+            class: window_class.as_ref(),
+            parent: None,
+            name: None,
+            menu: None,
+            instance: exe_instance(),
+            style: (0, 0),
+            position: None,
+            size: None,
+            param: 0usize as _,
+        }
+    }
+
+    pub fn name(mut self, name: &str) -> Self {
+        self.name = Some(name.into());
+        self
+    }
+
+    pub fn style(mut self, style: WindowStyle) -> Self {
+        self.style.0 = style.bits();
+        self
+    }
+
+    /// ECMA-234 Clause 27 CreateWindow CreateWindowEx
+    pub fn create_permanent(self) -> Result<Permanent<Window>> {
+        use std::ptr::{null, null_mut};
+        use winapi::um::winuser::CreateWindowExW;
+        use winapi::um::winuser::CW_USEDEFAULT;
+        let window = unsafe {
+            let position = self.position.clone().unwrap_or((CW_USEDEFAULT, 0));
+            let size = self.size.clone().unwrap_or((CW_USEDEFAULT, 0));
+            let h = CreateWindowExW(
+                self.style.1,
+                self.class.as_ptr_or_atom_ptr(),
+                self.name
+                    .as_ref()
+                    .map_or_else(null, CWideString::as_ptr),
+                self.style.0,
+                position.0,
+                position.1,
+                size.0,
+                size.1,
+                self.parent.map_or_else(null_mut, |v| v.0),
+                self.menu
+                    .as_ref()
+                    .map_or_else(null_mut, MenuOrChildWindowId::as_either_ptr),
+                self.instance,
+                self.param,
+            );
+            if h.is_null() {
+                return last_error();
+            };
+            Window(h)
+        };
+        Ok(Permanent::attach(window))
+    }
+}
+
+bitflags! {
+    pub struct WindowStyle : UINT {
+        const CAPTION = ::winapi::um::winuser::WS_CAPTION;
+        const VISIBLE = ::winapi::um::winuser::WS_VISIBLE;
+        const CLIPSIBLINGS = ::winapi::um::winuser::WS_CLIPSIBLINGS;
+        const SYSMENU = ::winapi::um::winuser::WS_SYSMENU;
+        const OVERLAPPED = ::winapi::um::winuser::WS_OVERLAPPED;
+        const MINIMIZEBOX = ::winapi::um::winuser::WS_MINIMIZEBOX;
+    }
+}
+
+impl Window {
+    /// ECMA-234 Clause 41 ShowWindow
+    pub fn show(&self, cmd: c_int) -> Result<&Self> {
+        let mut prev_state: bool = false;
+        self.show_and_get_prev_state(cmd, &mut prev_state)
+    }
+
+    /// ECMA-234 Clause 41 ShowWindow
+    pub fn show_and_get_prev_state(&self, cmd: c_int, prev_state: &mut bool) -> Result<&Self> {
+        use winapi::um::winuser::ShowWindow;
+        unsafe {
+            let r = ShowWindow(self.0, cmd);
+            *prev_state = booleanize(r);
+        }
+        Ok(self)
+    }
+
+    /// ECMA-234 Clause 41 IsWindowVisible
+    pub fn is_visible(&self) -> Result<bool> {
+        use winapi::um::winuser::IsWindowVisible;
+        let v = unsafe { booleanize(IsWindowVisible(self.0)) };
+        Ok(v)
+    }
+
+    /// ECMA-234 Clause 156 UpdateWindow
+    pub fn update(&self) -> Result<&Self> {
+        use winapi::um::winuser::UpdateWindow;
+        unsafe {
+            UpdateWindow(self.0);
+        }
+        Ok(self)
+    }
+}
+
+pub type PermanentWindowClass = Permanent<WindowClass>;
+pub type PermanentWindow = Permanent<Window>;
+
+pub enum WindowProcResponse {
+    Done(LRESULT),
+    Fallback,
+}
+
+pub struct WindowProcRequest<'a> {
+    pub hwnd: HWND,
+    pub msg: UINT,
+    pub wparam: WPARAM,
+    pub lparam: LPARAM,
+    pub response: Option<&'a mut WindowProcResponse>,
+}
+
+#[macro_export]
+macro_rules! window_proc {
+    ($nest_proc:expr) => {{
+        unsafe extern "system" fn translator(
+            hwnd: $crate::full_windows_api::shared::windef::HWND,
+            msg: $crate::full_windows_api::shared::minwindef::UINT,
+            wparam: $crate::full_windows_api::shared::minwindef::WPARAM,
+            lparam: $crate::full_windows_api::shared::minwindef::LPARAM,
+        ) -> $crate::full_windows_api::shared::minwindef::LRESULT {
+            let mut response = $crate::windows_subsystem::window::WindowProcResponse::Fallback;
+            {
+                let request = $crate::windows_subsystem::window::WindowProcRequest {
+                    hwnd,
+                    msg,
+                    wparam,
+                    lparam,
+                    response: Some(&mut response),
+                };
+
+                ($nest_proc)(request);
+            }
+
+            use $crate::windows_subsystem::window::WindowProcResponse;
+            match response {
+                WindowProcResponse::Done(r) => r,
+                WindowProcResponse::Fallback => {
+                    $crate::full_windows_api::um::winuser::DefWindowProcW(hwnd, msg, wparam, lparam)
+                }
+            }
+        }
+        translator
+    }};
+}
+
