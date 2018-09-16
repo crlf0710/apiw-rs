@@ -30,7 +30,17 @@ impl WindowClass {
     }
 }
 
-impl Handle for WindowClass {}
+impl Handle for WindowClass {
+    fn clean_up(&mut self) {
+        use winapi::um::winuser::UnregisterClassW;
+        unsafe {
+            let succeeded = booleanize(UnregisterClassW(self.as_ptr_or_atom_ptr(), exe_instance()));
+            if !succeeded {
+                warn!(target: "apiw", "Failed to cleanup {}, last error: {:?}", "WindowClass", last_error::<()>());
+            }
+        }
+    }
+}
 
 enum ResourceIDOrIDString {
     ID(WORD),
@@ -257,7 +267,15 @@ impl Window {
 }
 
 impl Handle for Window {
-
+    fn clean_up(&mut self) {
+        use winapi::um::winuser::DestroyWindow;
+        unsafe {
+            let succeeded = booleanize(DestroyWindow(self.raw_handle()));
+            if !succeeded {
+                warn!(target: "apiw", "Failed to cleanup {}, last error: {:?}", "Window", last_error::<()>());
+            }
+        }
+    }
 }
 
 pub struct WindowBuilder<'a, 'b> {
@@ -366,15 +384,6 @@ impl Window {
         let v = unsafe { booleanize(IsWindowVisible(self.0)) };
         Ok(v)
     }
-
-    /// ECMA-234 Clause 156 UpdateWindow
-    pub fn update(&self) -> Result<&Self> {
-        use winapi::um::winuser::UpdateWindow;
-        unsafe {
-            UpdateWindow(self.0);
-        }
-        Ok(self)
-    }
 }
 
 pub type PermanentWindowClass = Permanent<WindowClass>;
@@ -392,6 +401,28 @@ pub struct WindowProcRequest<'a> {
     pub lparam: LPARAM,
     pub response: Option<&'a mut WindowProcResponse>,
 }
+
+impl<'a> WindowProcRequest<'a> {
+    pub fn route_paint<F>(&mut self, f: F) -> &mut Self
+        where F: for<'r> FnOnce(&'r Window) -> Result<()> {
+        use winapi::um::winuser::WM_PAINT;
+        use std::mem::swap;
+        if self.msg == WM_PAINT {
+            let mut response = None;
+            swap(&mut response, &mut self.response);
+            if let Some(response) = response {
+                let window = Window(self.hwnd);
+                (f)(&window);
+                *response = WindowProcResponse::Done(0);
+            } else {
+                warn!(target: "apiw", "Duplicate route for event: {}", 
+                    "route_paint");
+            }
+        }
+        self
+    }
+}
+
 
 #[macro_export]
 macro_rules! window_proc {
