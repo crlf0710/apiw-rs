@@ -19,40 +19,57 @@ pub fn exe_instance() -> HINSTANCE {
 }
 
 pub trait Handle: 'static {
+    fn duplicate(&self) -> Self;
     fn clean_up(&mut self);
 }
 
-pub struct Permanent<T: Handle>(T);
+use std::marker::PhantomData;
 
-impl<T: Handle> Permanent<T> {
+pub struct Managed<'a, T: Handle>(T, PhantomData<&'a T>);
+
+impl<'a, T: Handle> Managed<'a, T> {
     pub fn attach(v: T) -> Self {
-        Permanent(v)
+        Managed(v, PhantomData)
+    }
+
+    pub fn share<'b, 'c>(&'b self) -> Managed<'c, T>
+    where
+        'a: 'c,
+        'b: 'c,
+    {
+        Managed(self.0.duplicate(), PhantomData)
     }
 }
 
 use std::convert::AsRef;
 use std::ops::Deref;
 
-impl<T: Handle> AsRef<T> for Permanent<T> {
+impl<'a, T: Handle> AsRef<T> for Managed<'a, T> {
     fn as_ref(&self) -> &T {
         &self.0
     }
 }
 
-impl<T: Handle> Deref for Permanent<T> {
+impl<'a, T: Handle> Deref for Managed<'a, T> {
     type Target = T;
     fn deref(&self) -> &T {
         &self.0
     }
 }
 
-use std::marker::PhantomData;
-
 pub struct Temporary<'a, T: Handle>(T, PhantomData<&'a T>);
 
 impl<'a, T: Handle> Temporary<'a, T> {
     pub fn attach(v: T) -> Self {
         Temporary(v, PhantomData)
+    }
+
+    pub fn share<'b, 'c>(&'b self) -> Managed<'c, T>
+    where
+        'a: 'c,
+        'b: 'c,
+    {
+        Managed(self.0.duplicate(), PhantomData)
     }
 }
 
@@ -75,6 +92,7 @@ impl<'a, T: Handle> Deref for Temporary<'a, T> {
     }
 }
 
+#[derive(Clone, Default)]
 pub struct CWideString(Vec<u16>);
 
 impl CWideString {
@@ -98,7 +116,7 @@ impl CWideString {
         self.0.len()
     }
 
-    pub fn as_ptr(&self) -> * const u16 {
+    pub fn as_ptr(&self) -> *const u16 {
         self.0.as_ptr()
     }
 }

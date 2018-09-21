@@ -1,8 +1,8 @@
 use winapi::shared::windef::HDC;
 use wio::error::last_error;
 
-use utils::Handle;
 use utils::booleanize;
+use utils::Handle;
 
 pub struct DeviceContext(pub(crate) HDC);
 
@@ -13,6 +13,10 @@ impl DeviceContext {
 }
 
 impl Handle for DeviceContext {
+    fn duplicate(&self) -> Self {
+        DeviceContext(self.0)
+    }
+
     fn clean_up(&mut self) {
         use winapi::um::wingdi::DeleteDC;
         unsafe {
@@ -23,4 +27,3 @@ impl Handle for DeviceContext {
         }
     }
 }
-

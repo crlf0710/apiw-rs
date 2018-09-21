@@ -1,10 +1,10 @@
-use winapi::shared::minwindef::UINT;
-use wio::Result;
-use wio::error::last_error;
 use num_traits::FromPrimitive;
+use winapi::shared::minwindef::UINT;
+use wio::error::last_error;
+use wio::Result;
 
-use windows_subsystem::window::Window;
 use utils::CWideString;
+use windows_subsystem::window::Window;
 
 pub struct MessageBoxBuilder<'a> {
     parent: Option<&'a Window>,
@@ -47,14 +47,14 @@ impl<'a> MessageBoxBuilder<'a> {
 
     /// ECMA-234 Clause 434 MessageBox
     pub fn invoke(self) -> Result<MessageBoxResult> {
-        use winapi::um::winuser::MessageBoxW;
         use std::ptr::null_mut;
+        use winapi::um::winuser::MessageBoxW;
         let r = unsafe {
             MessageBoxW(
                 self.parent.map_or_else(null_mut, Window::raw_handle),
                 self.message.as_ptr(),
                 self.title.as_ptr(),
-                self.style
+                self.style,
             )
         };
         if let Some(result) = MessageBoxResult::from_i32(r) {
@@ -64,4 +64,3 @@ impl<'a> MessageBoxBuilder<'a> {
         }
     }
 }
-

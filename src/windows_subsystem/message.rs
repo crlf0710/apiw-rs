@@ -90,13 +90,13 @@ impl MessageLoop {
     }
 
     /// ECMA-234 Clause 8 GetMessage
-    pub fn get_message(&mut self) -> Result<QuitOrNormalMsg> {
+    pub fn poll_wait(&mut self) -> Result<QuitOrNormalMsg> {
         let FILTER: MessageSimpleFilter = MessageSimpleFilter::new();
-        self.get_message_with_filter(&FILTER)
+        self.poll_wait_with_filter(&FILTER)
     }
 
     /// ECMA-234 Clause 8 GetMessage
-    pub fn get_message_with_filter(
+    pub fn poll_wait_with_filter(
         &mut self,
         filter: &MessageSimpleFilter,
     ) -> Result<QuitOrNormalMsg> {
@@ -115,11 +115,7 @@ impl MessageLoop {
     }
 
     // internal
-    fn peek_message_internal(
-        &mut self,
-        filter: &MessageFilter,
-        extra_flags: UINT,
-    ) -> Option<Message> {
+    fn peek_internal(&mut self, filter: &MessageFilter, extra_flags: UINT) -> Option<Message> {
         use winapi::um::winuser::PeekMessageW;
         unsafe {
             let mut msg: MSG = uninitialized();
@@ -139,37 +135,37 @@ impl MessageLoop {
     }
 
     /// ECMA-234 Clause 8 PeekMessage
-    pub fn peek_message_with_filter(&mut self, filter: &MessageFilter) -> Option<Message> {
+    pub fn peek_with_filter(&mut self, filter: &MessageFilter) -> Option<Message> {
         use winapi::um::winuser::PM_NOREMOVE;
-        self.peek_message_internal(filter, PM_NOREMOVE)
+        self.peek_internal(filter, PM_NOREMOVE)
     }
 
     /// ECMA-234 Clause 8 PeekMessage
-    pub fn peek_and_steal_message_with_filter(
+    pub fn peek_and_consume_message_with_filter(
         &mut self,
         filter: &MessageFilter,
     ) -> Option<Message> {
         use winapi::um::winuser::PM_REMOVE;
-        self.peek_message_internal(filter, PM_REMOVE)
+        self.peek_internal(filter, PM_REMOVE)
     }
 
     /// ECMA-234 Clause 8 PeekMessage
-    pub fn peek_message_with_filter_no_yield(&mut self, filter: &MessageFilter) -> Option<Message> {
+    pub fn peek_with_filter_no_yield(&mut self, filter: &MessageFilter) -> Option<Message> {
         use winapi::um::winuser::{PM_NOREMOVE, PM_NOYIELD};
-        self.peek_message_internal(filter, PM_NOREMOVE | PM_NOYIELD)
+        self.peek_internal(filter, PM_NOREMOVE | PM_NOYIELD)
     }
 
     /// ECMA-234 Clause 8 PeekMessage
-    pub fn peek_and_steal_message_with_filter_no_yield(
+    pub fn peek_and_consume_message_with_filter_no_yield(
         &mut self,
         filter: &MessageFilter,
     ) -> Option<Message> {
         use winapi::um::winuser::{PM_NOYIELD, PM_REMOVE};
-        self.peek_message_internal(filter, PM_REMOVE | PM_NOYIELD)
+        self.peek_internal(filter, PM_REMOVE | PM_NOYIELD)
     }
 
     /// ECMA-234 Clause 9 WaitMessage
-    pub fn wait_until_new_message_arrives(&mut self) -> Result<()> {
+    pub fn wait_for_next_incoming(&mut self) -> Result<()> {
         use winapi::um::winuser::WaitMessage;
         unsafe {
             if booleanize(WaitMessage()) {
@@ -181,13 +177,13 @@ impl MessageLoop {
     }
 
     /// ECMA-234 Clause 10 GetMessagePos
-    pub fn get_last_message_pos(&mut self) -> MessagePos {
+    pub fn last_message_pos(&mut self) -> MessagePos {
         use winapi::um::winuser::GetMessagePos;
         unsafe { GetMessagePos().into() }
     }
 
     /// ECMA-234 Clause 10 GetMessageTime
-    pub fn get_last_message_time(&mut self) -> MessageTime {
+    pub fn last_message_time(&mut self) -> MessageTime {
         use winapi::um::winuser::GetMessageTime;
         unsafe { GetMessageTime().into() }
     }

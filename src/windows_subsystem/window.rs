@@ -14,23 +14,33 @@ use wio::Result;
 use utils::booleanize;
 use utils::exe_instance;
 use utils::CWideString;
-use utils::{Handle, Permanent, Temporary};
+use utils::{Handle, Managed, Temporary};
 
-pub enum WindowClass {
+pub struct WindowClass(WindowClassInner);
+
+#[derive(Clone)]
+pub enum WindowClassInner {
     Atom(ATOM),
     String(CWideString),
 }
 
 impl WindowClass {
+    fn new_with_atom(v: ATOM) -> Self {
+        WindowClass(WindowClassInner::Atom(v))
+    }
+
     fn as_ptr_or_atom_ptr(&self) -> *const u16 {
-        match self {
-            WindowClass::Atom(atom) => *atom as _,
-            WindowClass::String(str) => str.as_ptr(),
+        match &self.0 {
+            WindowClassInner::Atom(atom) => *atom as _,
+            WindowClassInner::String(str) => str.as_ptr(),
         }
     }
 }
 
 impl Handle for WindowClass {
+    fn duplicate(&self) -> Self {
+        WindowClass(self.0.clone())
+    }
     fn clean_up(&mut self) {
         use winapi::um::winuser::UnregisterClassW;
         unsafe {
@@ -61,42 +71,45 @@ impl ResourceIDOrIDString {
 pub struct SysColor(c_int);
 
 impl SysColor {
-    pub const THREE_DIM_DARK_SHADOW : SysColor = SysColor(::winapi::um::winuser::COLOR_3DDKSHADOW);
-    pub const THREE_DIM_FACE : SysColor = SysColor(::winapi::um::winuser::COLOR_3DFACE);
-    pub const THREE_DIM_HIGHLIGHT : SysColor = SysColor(::winapi::um::winuser::COLOR_3DHIGHLIGHT);
-    pub const THREE_DIM_HILIGHT : SysColor = SysColor(::winapi::um::winuser::COLOR_3DHILIGHT);
-    pub const THREE_DIM_LIGHT : SysColor = SysColor(::winapi::um::winuser::COLOR_3DLIGHT);
-    pub const THREE_DIM_SHADOW : SysColor = SysColor(::winapi::um::winuser::COLOR_3DSHADOW);
-    pub const ACTIVE_BORDER : SysColor = SysColor(::winapi::um::winuser::COLOR_ACTIVEBORDER);
-    pub const ACTIVE_CAPTION : SysColor = SysColor(::winapi::um::winuser::COLOR_ACTIVECAPTION);
-    pub const APP_WORKSPACE : SysColor = SysColor(::winapi::um::winuser::COLOR_APPWORKSPACE);
-    pub const BACKGROUND : SysColor = SysColor(::winapi::um::winuser::COLOR_BACKGROUND);
-    pub const BUTTON_FACE : SysColor = SysColor(::winapi::um::winuser::COLOR_BTNFACE);
-    pub const BUTTON_HIGHLIGHT : SysColor = SysColor(::winapi::um::winuser::COLOR_BTNHIGHLIGHT);
-    pub const BUTTON_HILIGHT : SysColor = SysColor(::winapi::um::winuser::COLOR_BTNHILIGHT);
-    pub const BUTTON_SHADOW : SysColor = SysColor(::winapi::um::winuser::COLOR_BTNSHADOW);
-    pub const BUTTON_TEXT : SysColor = SysColor(::winapi::um::winuser::COLOR_BTNTEXT);
-    pub const CAPTION_TEXT : SysColor = SysColor(::winapi::um::winuser::COLOR_CAPTIONTEXT);
-    pub const DESKTOP : SysColor = SysColor(::winapi::um::winuser::COLOR_DESKTOP);
-    pub const GRADIENT_ACTIVE_CAPTION : SysColor = SysColor(::winapi::um::winuser::COLOR_GRADIENTACTIVECAPTION);
-    pub const GRADIENT_INACTIVE_CAPTION : SysColor = SysColor(::winapi::um::winuser::COLOR_GRADIENTINACTIVECAPTION);
-    pub const GRAY_TEXT : SysColor = SysColor(::winapi::um::winuser::COLOR_GRAYTEXT);
-    pub const HIGHLIGHT : SysColor = SysColor(::winapi::um::winuser::COLOR_HIGHLIGHT);
-    pub const HIGHLIGHT_TEXT : SysColor = SysColor(::winapi::um::winuser::COLOR_HIGHLIGHTTEXT);
-    pub const HOTLIGHT : SysColor = SysColor(::winapi::um::winuser::COLOR_HOTLIGHT);
-    pub const INACTIVE_BORDER : SysColor = SysColor(::winapi::um::winuser::COLOR_INACTIVEBORDER);
-    pub const INACTIVE_CAPTION : SysColor = SysColor(::winapi::um::winuser::COLOR_INACTIVECAPTION);
-    pub const INACTIVE_CAPTION_TEXT : SysColor = SysColor(::winapi::um::winuser::COLOR_INACTIVECAPTIONTEXT);
-    pub const INFO_BACKGROUND : SysColor = SysColor(::winapi::um::winuser::COLOR_INFOBK);
-    pub const INFO_TEXT : SysColor = SysColor(::winapi::um::winuser::COLOR_INFOTEXT);
-    pub const MENU : SysColor = SysColor(::winapi::um::winuser::COLOR_MENU);
-    pub const MENU_BAR : SysColor = SysColor(::winapi::um::winuser::COLOR_MENUBAR);
-    pub const MENU_HILIGHT : SysColor = SysColor(::winapi::um::winuser::COLOR_MENUHILIGHT);
-    pub const MENU_TEXT : SysColor = SysColor(::winapi::um::winuser::COLOR_MENUTEXT);
-    pub const SCROLL_BAR : SysColor = SysColor(::winapi::um::winuser::COLOR_SCROLLBAR);
-    pub const WINDOW : SysColor = SysColor(::winapi::um::winuser::COLOR_WINDOW);
-    pub const WINDOW_FRAME : SysColor = SysColor(::winapi::um::winuser::COLOR_WINDOWFRAME);
-    pub const WINDOW_TEXT : SysColor = SysColor(::winapi::um::winuser::COLOR_WINDOWTEXT);
+    pub const THREE_DIM_DARK_SHADOW: SysColor = SysColor(::winapi::um::winuser::COLOR_3DDKSHADOW);
+    pub const THREE_DIM_FACE: SysColor = SysColor(::winapi::um::winuser::COLOR_3DFACE);
+    pub const THREE_DIM_HIGHLIGHT: SysColor = SysColor(::winapi::um::winuser::COLOR_3DHIGHLIGHT);
+    pub const THREE_DIM_HILIGHT: SysColor = SysColor(::winapi::um::winuser::COLOR_3DHILIGHT);
+    pub const THREE_DIM_LIGHT: SysColor = SysColor(::winapi::um::winuser::COLOR_3DLIGHT);
+    pub const THREE_DIM_SHADOW: SysColor = SysColor(::winapi::um::winuser::COLOR_3DSHADOW);
+    pub const ACTIVE_BORDER: SysColor = SysColor(::winapi::um::winuser::COLOR_ACTIVEBORDER);
+    pub const ACTIVE_CAPTION: SysColor = SysColor(::winapi::um::winuser::COLOR_ACTIVECAPTION);
+    pub const APP_WORKSPACE: SysColor = SysColor(::winapi::um::winuser::COLOR_APPWORKSPACE);
+    pub const BACKGROUND: SysColor = SysColor(::winapi::um::winuser::COLOR_BACKGROUND);
+    pub const BUTTON_FACE: SysColor = SysColor(::winapi::um::winuser::COLOR_BTNFACE);
+    pub const BUTTON_HIGHLIGHT: SysColor = SysColor(::winapi::um::winuser::COLOR_BTNHIGHLIGHT);
+    pub const BUTTON_HILIGHT: SysColor = SysColor(::winapi::um::winuser::COLOR_BTNHILIGHT);
+    pub const BUTTON_SHADOW: SysColor = SysColor(::winapi::um::winuser::COLOR_BTNSHADOW);
+    pub const BUTTON_TEXT: SysColor = SysColor(::winapi::um::winuser::COLOR_BTNTEXT);
+    pub const CAPTION_TEXT: SysColor = SysColor(::winapi::um::winuser::COLOR_CAPTIONTEXT);
+    pub const DESKTOP: SysColor = SysColor(::winapi::um::winuser::COLOR_DESKTOP);
+    pub const GRADIENT_ACTIVE_CAPTION: SysColor =
+        SysColor(::winapi::um::winuser::COLOR_GRADIENTACTIVECAPTION);
+    pub const GRADIENT_INACTIVE_CAPTION: SysColor =
+        SysColor(::winapi::um::winuser::COLOR_GRADIENTINACTIVECAPTION);
+    pub const GRAY_TEXT: SysColor = SysColor(::winapi::um::winuser::COLOR_GRAYTEXT);
+    pub const HIGHLIGHT: SysColor = SysColor(::winapi::um::winuser::COLOR_HIGHLIGHT);
+    pub const HIGHLIGHT_TEXT: SysColor = SysColor(::winapi::um::winuser::COLOR_HIGHLIGHTTEXT);
+    pub const HOTLIGHT: SysColor = SysColor(::winapi::um::winuser::COLOR_HOTLIGHT);
+    pub const INACTIVE_BORDER: SysColor = SysColor(::winapi::um::winuser::COLOR_INACTIVEBORDER);
+    pub const INACTIVE_CAPTION: SysColor = SysColor(::winapi::um::winuser::COLOR_INACTIVECAPTION);
+    pub const INACTIVE_CAPTION_TEXT: SysColor =
+        SysColor(::winapi::um::winuser::COLOR_INACTIVECAPTIONTEXT);
+    pub const INFO_BACKGROUND: SysColor = SysColor(::winapi::um::winuser::COLOR_INFOBK);
+    pub const INFO_TEXT: SysColor = SysColor(::winapi::um::winuser::COLOR_INFOTEXT);
+    pub const MENU: SysColor = SysColor(::winapi::um::winuser::COLOR_MENU);
+    pub const MENU_BAR: SysColor = SysColor(::winapi::um::winuser::COLOR_MENUBAR);
+    pub const MENU_HILIGHT: SysColor = SysColor(::winapi::um::winuser::COLOR_MENUHILIGHT);
+    pub const MENU_TEXT: SysColor = SysColor(::winapi::um::winuser::COLOR_MENUTEXT);
+    pub const SCROLL_BAR: SysColor = SysColor(::winapi::um::winuser::COLOR_SCROLLBAR);
+    pub const WINDOW: SysColor = SysColor(::winapi::um::winuser::COLOR_WINDOW);
+    pub const WINDOW_FRAME: SysColor = SysColor(::winapi::um::winuser::COLOR_WINDOWFRAME);
+    pub const WINDOW_TEXT: SysColor = SysColor(::winapi::um::winuser::COLOR_WINDOWTEXT);
 }
 
 #[derive(Into)]
@@ -178,8 +191,8 @@ impl WindowClassBuilder {
     }
 
     pub fn syscursor(mut self, syscursor: SysCursor) -> Self {
-        use winapi::um::winuser::LoadCursorW;
         use std::ptr::null_mut;
+        use winapi::um::winuser::LoadCursorW;
 
         self.cursor = Some(unsafe {
             //FIXME is this properly released?
@@ -188,7 +201,7 @@ impl WindowClassBuilder {
         self
     }
 
-    pub fn create_permanent(self) -> Result<Permanent<WindowClass>> {
+    pub fn create_managed(self) -> Result<Managed<'static, WindowClass>> {
         use std::ptr::{null, null_mut};
         use winapi::um::winuser::RegisterClassExW;
         use winapi::um::winuser::WNDCLASSEXW;
@@ -218,9 +231,9 @@ impl WindowClassBuilder {
             if h == 0 {
                 return last_error();
             }
-            WindowClass::Atom(h)
+            WindowClass::new_with_atom(h)
         };
-        Ok(Permanent::attach(window_class))
+        Ok(Managed::attach(window_class))
     }
 }
 
@@ -258,6 +271,7 @@ impl MenuOrChildWindowId {
     }
 }
 
+#[derive(Clone)]
 pub struct Window(HWND);
 
 impl Window {
@@ -267,6 +281,9 @@ impl Window {
 }
 
 impl Handle for Window {
+    fn duplicate(&self) -> Self {
+        Window(self.0)
+    }
     fn clean_up(&mut self) {
         use winapi::um::winuser::DestroyWindow;
         unsafe {
@@ -316,7 +333,7 @@ impl<'a, 'b> WindowBuilder<'a, 'b> {
     }
 
     /// ECMA-234 Clause 27 CreateWindow CreateWindowEx
-    pub fn create_permanent(self) -> Result<Permanent<Window>> {
+    pub fn create_managed(self) -> Result<Managed<'static, Window>> {
         use std::ptr::{null, null_mut};
         use winapi::um::winuser::CreateWindowExW;
         use winapi::um::winuser::CW_USEDEFAULT;
@@ -326,9 +343,7 @@ impl<'a, 'b> WindowBuilder<'a, 'b> {
             let h = CreateWindowExW(
                 self.style.1,
                 self.class.as_ptr_or_atom_ptr(),
-                self.name
-                    .as_ref()
-                    .map_or_else(null, CWideString::as_ptr),
+                self.name.as_ref().map_or_else(null, CWideString::as_ptr),
                 self.style.0,
                 position.0,
                 position.1,
@@ -346,7 +361,8 @@ impl<'a, 'b> WindowBuilder<'a, 'b> {
             };
             Window(h)
         };
-        Ok(Permanent::attach(window))
+
+        Ok(Managed::attach(window))
     }
 }
 
@@ -386,8 +402,10 @@ impl Window {
     }
 }
 
-pub type PermanentWindowClass = Permanent<WindowClass>;
-pub type PermanentWindow = Permanent<Window>;
+pub type ManagedWindowClass<'a> = Managed<'a, WindowClass>;
+pub type PermanentWindowClass = ManagedWindowClass<'static>;
+pub type ManagedWindow<'a> = Managed<'a, Window>;
+pub type PermanentWindow = ManagedWindow<'static>;
 
 pub enum WindowProcResponse {
     Done(LRESULT),
@@ -404,16 +422,19 @@ pub struct WindowProcRequest<'a> {
 
 impl<'a> WindowProcRequest<'a> {
     pub fn route_paint<F>(&mut self, f: F) -> &mut Self
-        where F: for<'r> FnOnce(&'r Window) -> Result<()> {
-        use winapi::um::winuser::WM_PAINT;
+    where
+        F: for<'r> FnOnce(&'r Window) -> Result<()>,
+    {
         use std::mem::swap;
+        use winapi::um::winuser::WM_PAINT;
         if self.msg == WM_PAINT {
             let mut response = None;
             swap(&mut response, &mut self.response);
             if let Some(response) = response {
                 let window = Window(self.hwnd);
-                (f)(&window);
-                *response = WindowProcResponse::Done(0);
+                if (f)(&window).is_ok() {
+                    *response = WindowProcResponse::Done(0);
+                }
             } else {
                 warn!(target: "apiw", "Duplicate route for event: {}", 
                     "route_paint");
@@ -422,7 +443,6 @@ impl<'a> WindowProcRequest<'a> {
         self
     }
 }
-
 
 #[macro_export]
 macro_rules! window_proc {
@@ -457,4 +477,3 @@ macro_rules! window_proc {
         translator
     }};
 }
-
