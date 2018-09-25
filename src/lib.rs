@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 extern crate winapi;
 extern crate wio;
 #[macro_use]
@@ -24,3 +26,18 @@ pub mod full_windows_api {
 }
 
 pub use wio::Result;
+pub use wio::error::last_error;
+
+pub fn maybe_last_error<T, D: FnOnce() -> T>(f: D) -> wio::Result<T> {
+    let err = last_error();
+    let code = if let Err(ref err) = err {
+        err.code()
+    } else {
+        0
+    };
+    if code == 0 {
+        Ok(f())
+    } else {
+        err
+    }
+}

@@ -4,42 +4,57 @@ use winapi::um::winuser::PAINTSTRUCT;
 use wio::error::last_error;
 use wio::Result;
 
+use utils::strategy;
+use utils::{ManagedEntity, ManagedData};
+
 use graphics_subsystem::device_context::DeviceContext;
-use utils::Handle;
-use utils::Temporary;
+use graphics_subsystem::device_context::DeviceContextInner;
 use windows_subsystem::window::Window;
 
-pub struct PaintDeviceContext {
+pub type PaintDeviceContext<T: ManagedStrategy> = ManagedEntity<PaintDeviceContextInner, T>;
+
+pub struct PaintDeviceContextInner {
     window: HWND,
-    // None in Managed, Some in Temporary
     paint_structure: Option<PAINTSTRUCT>,
     device_context: DeviceContext,
 }
 
-impl PaintDeviceContext {
-    pub fn raw_handle(&self) -> HDC {
-        self.device_context.raw_handle()
+impl PaintDeviceContextInner {
+    pub(crate) fn raw_handle(&self) -> HDC {
+        self.device_context.data_ref().raw_handle()
     }
 }
 
 use std::ops::Deref;
+use std::ops::DerefMut;
+use utils::ManagedStrategy;
 
-impl Deref for PaintDeviceContext {
+impl<T: ManagedStrategy> Deref for PaintDeviceContext<T> {
     type Target = DeviceContext;
     fn deref(&self) -> &DeviceContext {
-        &self.device_context
+        &self.data_ref().device_context
     }
 }
 
-impl Handle for PaintDeviceContext {
-    fn duplicate(&self) -> Self {
+impl<T: ManagedStrategy> DerefMut for PaintDeviceContext<T> {
+    fn deref_mut(&mut self) -> &mut DeviceContext {
+        &mut self.data_mut().device_context
+    }
+}
+
+
+impl ManagedData for PaintDeviceContextInner {
+    fn share(&self) -> Self {
+        panic!("PaintDeviceContext cannot be shared.");
+        /*
         PaintDeviceContext {
             window: self.window,
             paint_structure: None,
             device_context: self.device_context.duplicate(),
         }
+        */
     }
-    fn clean_up(&mut self) {
+    fn delete(&mut self) {
         use winapi::um::winuser::EndPaint;
         unsafe {
             if let Some(paint_structure) = self.paint_structure.as_mut() {
@@ -51,32 +66,31 @@ impl Handle for PaintDeviceContext {
     }
 }
 
-impl Window {
-    pub fn do_paint(&self) -> Result<Temporary<PaintDeviceContext>> {
+impl<T: ManagedStrategy> Window<T> {
+    pub fn do_paint(&self) -> Result<PaintDeviceContext<strategy::Local>> {
         use std::mem::zeroed;
-        use std::ptr::null_mut;
         use winapi::um::winuser::BeginPaint;
-        let paint_dc = unsafe {
-            let hwnd = self.raw_handle();
+        let paint_dc: PaintDeviceContextInner = unsafe {
+            let hwnd = self.data_ref().raw_handle();
             let mut paint_structure = zeroed();
             let hdc = BeginPaint(hwnd, &mut paint_structure);
             if hdc.is_null() {
                 return last_error();
             };
-            PaintDeviceContext {
+            PaintDeviceContextInner {
                 window: hwnd,
                 paint_structure: Some(paint_structure),
-                device_context: DeviceContext(hdc),
+                device_context: strategy::Local::attached_entity(DeviceContextInner::new_initial_dc_from_attached(hdc)),
             }
         };
-        Ok(Temporary::attach(paint_dc))
+        Ok(strategy::Local::attached_entity(paint_dc))
     }
 
     /// ECMA-234 Clause 156 UpdateWindow
     pub fn update(&self) -> Result<&Self> {
         use winapi::um::winuser::UpdateWindow;
         unsafe {
-            UpdateWindow(self.raw_handle());
+            UpdateWindow(self.data_ref().raw_handle());
         }
         Ok(self)
     }

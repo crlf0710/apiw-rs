@@ -8,15 +8,23 @@ use winapi::shared::windef::HICON;
 use winapi::shared::windef::HMENU;
 use winapi::shared::windef::HWND;
 use winapi::um::winuser::WNDPROC;
-use wio::error::last_error;
-use wio::Result;
+use {Result, last_error, maybe_last_error};
 
 use utils::booleanize;
+use utils::revert_booleanize;
 use utils::exe_instance;
 use utils::CWideString;
-use utils::{Handle, Managed, Temporary};
+use utils::ManagedStrategy;
+//use utils::{Handle, Managed, Temporary};
+//use utils::System;
+use utils::ManagedEntity;
+use utils::strategy;
+use utils::ManagedData;
+use utils::OkOrLastError;
+use graphics_subsystem::Rect;
+use graphics_subsystem::Size;
 
-pub struct WindowClass(WindowClassInner);
+pub type WindowClass<T: ManagedStrategy> = ManagedEntity<WindowClassInner, T>;
 
 #[derive(Clone)]
 pub enum WindowClassInner {
@@ -24,24 +32,21 @@ pub enum WindowClassInner {
     String(CWideString),
 }
 
-impl WindowClass {
-    fn new_with_atom(v: ATOM) -> Self {
-        WindowClass(WindowClassInner::Atom(v))
-    }
-
+impl WindowClassInner {
     fn as_ptr_or_atom_ptr(&self) -> *const u16 {
-        match &self.0 {
+        match &self {
             WindowClassInner::Atom(atom) => *atom as _,
             WindowClassInner::String(str) => str.as_ptr(),
         }
     }
 }
 
-impl Handle for WindowClass {
-    fn duplicate(&self) -> Self {
-        WindowClass(self.0.clone())
+impl ManagedData for WindowClassInner {
+    fn share(&self) -> Self {
+        self.clone()
     }
-    fn clean_up(&mut self) {
+
+    fn delete(&mut self) {
         use winapi::um::winuser::UnregisterClassW;
         unsafe {
             let succeeded = booleanize(UnregisterClassW(self.as_ptr_or_atom_ptr(), exe_instance()));
@@ -52,13 +57,26 @@ impl Handle for WindowClass {
     }
 }
 
-enum ResourceIDOrIDString {
+impl WindowClass<strategy::Foreign> {
+    fn new_with_atom(v: ATOM) -> WindowClass<strategy::Foreign> {
+        strategy::Foreign::attached_entity(WindowClassInner::Atom(v))
+    }
+}
+
+impl<T: ManagedStrategy> WindowClass<T> {
+    pub(crate) fn as_ptr_or_atom_ptr(&self) -> *const u16 {
+        self.data_ref().as_ptr_or_atom_ptr()
+    }
+}
+
+
+pub(crate) enum ResourceIDOrIDString {
     ID(WORD),
     String(CWideString),
 }
 
 impl ResourceIDOrIDString {
-    fn as_ptr_or_int_ptr(&self) -> *const u16 {
+    pub(crate) fn as_ptr_or_int_ptr(&self) -> *const u16 {
         use winapi::um::winuser::MAKEINTRESOURCEW;
         match self {
             ResourceIDOrIDString::ID(id) => MAKEINTRESOURCEW(*id),
@@ -201,7 +219,7 @@ impl WindowClassBuilder {
         self
     }
 
-    pub fn create_managed(self) -> Result<Managed<'static, WindowClass>> {
+    pub fn create_managed(self) -> Result<WindowClass<strategy::Foreign>> {
         use std::ptr::{null, null_mut};
         use winapi::um::winuser::RegisterClassExW;
         use winapi::um::winuser::WNDCLASSEXW;
@@ -231,9 +249,9 @@ impl WindowClassBuilder {
             if h == 0 {
                 return last_error();
             }
-            WindowClass::new_with_atom(h)
+            h
         };
-        Ok(Managed::attach(window_class))
+        Ok(WindowClass::new_with_atom(window_class))
     }
 }
 
@@ -271,20 +289,22 @@ impl MenuOrChildWindowId {
     }
 }
 
-#[derive(Clone)]
-pub struct Window(HWND);
+pub type Window<T: ManagedStrategy> = ManagedEntity<WindowInner, T>;
 
-impl Window {
-    pub fn raw_handle(&self) -> HWND {
+#[derive(Clone)]
+pub struct WindowInner(HWND);
+
+impl WindowInner {
+    pub(crate) fn raw_handle(&self) -> HWND {
         self.0
     }
 }
 
-impl Handle for Window {
-    fn duplicate(&self) -> Self {
-        Window(self.0)
+impl ManagedData for WindowInner {
+    fn share(&self) -> Self {
+        WindowInner(self.0)
     }
-    fn clean_up(&mut self) {
+    fn delete(&mut self) {
         use winapi::um::winuser::DestroyWindow;
         unsafe {
             let succeeded = booleanize(DestroyWindow(self.raw_handle()));
@@ -296,8 +316,8 @@ impl Handle for Window {
 }
 
 pub struct WindowBuilder<'a, 'b> {
-    class: &'a WindowClass,
-    parent: Option<&'b Window>,
+    class: &'a WindowClassInner,
+    parent: Option<&'b WindowInner>,
     name: Option<CWideString>,
     menu: Option<MenuOrChildWindowId>,
     instance: HINSTANCE,
@@ -308,9 +328,9 @@ pub struct WindowBuilder<'a, 'b> {
 }
 
 impl<'a, 'b> WindowBuilder<'a, 'b> {
-    pub fn new<WC: AsRef<WindowClass>>(window_class: &'a WC) -> Self {
+    pub fn new(window_class: &'a WindowClass<impl ManagedStrategy>) -> Self {
         Self {
-            class: window_class.as_ref(),
+            class: window_class.data_ref(),
             parent: None,
             name: None,
             menu: None,
@@ -327,13 +347,13 @@ impl<'a, 'b> WindowBuilder<'a, 'b> {
         self
     }
 
-    pub fn style(mut self, style: WindowStyle) -> Self {
+    pub fn style(mut self, style: WindowStyles) -> Self {
         self.style.0 = style.bits();
         self
     }
 
     /// ECMA-234 Clause 27 CreateWindow CreateWindowEx
-    pub fn create_managed(self) -> Result<Managed<'static, Window>> {
+    pub fn create(self) -> Result<Window<strategy::Foreign>> {
         use std::ptr::{null, null_mut};
         use winapi::um::winuser::CreateWindowExW;
         use winapi::um::winuser::CW_USEDEFAULT;
@@ -359,25 +379,87 @@ impl<'a, 'b> WindowBuilder<'a, 'b> {
             if h.is_null() {
                 return last_error();
             };
-            Window(h)
+            h
         };
-
-        Ok(Managed::attach(window))
+        Window::new_from_attached(window).ok_or_last_error()
     }
 }
 
 bitflags! {
-    pub struct WindowStyle : UINT {
-        const CAPTION = ::winapi::um::winuser::WS_CAPTION;
-        const VISIBLE = ::winapi::um::winuser::WS_VISIBLE;
-        const CLIPSIBLINGS = ::winapi::um::winuser::WS_CLIPSIBLINGS;
-        const SYSMENU = ::winapi::um::winuser::WS_SYSMENU;
+    pub struct WindowStyles : DWORD {
         const OVERLAPPED = ::winapi::um::winuser::WS_OVERLAPPED;
+        const POPUP = ::winapi::um::winuser::WS_POPUP;
+        const CHILD = ::winapi::um::winuser::WS_CHILD;
+        const MINIMIZE = ::winapi::um::winuser::WS_MINIMIZE;
+        const VISIBLE = ::winapi::um::winuser::WS_VISIBLE;
+        const DISABLED = ::winapi::um::winuser::WS_DISABLED;
+        const CLIPSIBLINGS = ::winapi::um::winuser::WS_CLIPSIBLINGS;
+        const CLIPCHILDREN = ::winapi::um::winuser::WS_CLIPCHILDREN;
+        const MAXIMIZE = ::winapi::um::winuser::WS_MAXIMIZE;
+        const CAPTION = ::winapi::um::winuser::WS_CAPTION;
+        const BORDER = ::winapi::um::winuser::WS_BORDER;
+        const DLGFRAME = ::winapi::um::winuser::WS_DLGFRAME;
+        const VSCROLL = ::winapi::um::winuser::WS_VSCROLL;
+        const HSCROLL = ::winapi::um::winuser::WS_HSCROLL;
+        const SYSMENU = ::winapi::um::winuser::WS_SYSMENU;
+        const THICKFRAME = ::winapi::um::winuser::WS_THICKFRAME;
+        const GROUP = ::winapi::um::winuser::WS_GROUP;
+        const TABSTOP = ::winapi::um::winuser::WS_TABSTOP;
         const MINIMIZEBOX = ::winapi::um::winuser::WS_MINIMIZEBOX;
+        const MAXIMIZEBOX = ::winapi::um::winuser::WS_MAXIMIZEBOX;
+        const TILED = ::winapi::um::winuser::WS_TILED;
+        const ICONIC = ::winapi::um::winuser::WS_ICONIC;
+        const SIZEBOX = ::winapi::um::winuser::WS_SIZEBOX;
+        const TILEDWINDOW = ::winapi::um::winuser::WS_TILEDWINDOW;
+        const OVERLAPPEDWINDOW = ::winapi::um::winuser::WS_OVERLAPPEDWINDOW;
+        const POPUPWINDOW = ::winapi::um::winuser::WS_POPUPWINDOW;
+        const CHILDWINDOW = ::winapi::um::winuser::WS_CHILDWINDOW;
     }
 }
 
-impl Window {
+bitflags! {
+    pub struct WindowExtendedStyles : DWORD {
+        const DLGMODALFRAME = ::winapi::um::winuser::WS_EX_DLGMODALFRAME;
+        const NOPARENTNOTIFY = ::winapi::um::winuser::WS_EX_NOPARENTNOTIFY;
+        const TOPMOST = ::winapi::um::winuser::WS_EX_TOPMOST;
+        const ACCEPTFILES = ::winapi::um::winuser::WS_EX_ACCEPTFILES;
+        const TRANSPARENT = ::winapi::um::winuser::WS_EX_TRANSPARENT;
+        const MDICHILD = ::winapi::um::winuser::WS_EX_MDICHILD;
+        const TOOLWINDOW = ::winapi::um::winuser::WS_EX_TOOLWINDOW;
+        const WINDOWEDGE = ::winapi::um::winuser::WS_EX_WINDOWEDGE;
+        const CLIENTEDGE = ::winapi::um::winuser::WS_EX_CLIENTEDGE;
+        const CONTEXTHELP = ::winapi::um::winuser::WS_EX_CONTEXTHELP;
+        const RIGHT = ::winapi::um::winuser::WS_EX_RIGHT;
+        const LEFT = ::winapi::um::winuser::WS_EX_LEFT;
+        const RTLREADING = ::winapi::um::winuser::WS_EX_RTLREADING;
+        const LTRREADING = ::winapi::um::winuser::WS_EX_LTRREADING;
+        const LEFTSCROLLBAR = ::winapi::um::winuser::WS_EX_LEFTSCROLLBAR;
+        const RIGHTSCROLLBAR = ::winapi::um::winuser::WS_EX_RIGHTSCROLLBAR;
+        const CONTROLPARENT = ::winapi::um::winuser::WS_EX_CONTROLPARENT;
+        const STATICEDGE = ::winapi::um::winuser::WS_EX_STATICEDGE;
+        const APPWINDOW = ::winapi::um::winuser::WS_EX_APPWINDOW;
+        const OVERLAPPEDWINDOW = ::winapi::um::winuser::WS_EX_OVERLAPPEDWINDOW;
+        const PALETTEWINDOW = ::winapi::um::winuser::WS_EX_PALETTEWINDOW;
+        const LAYERED = ::winapi::um::winuser::WS_EX_LAYERED;
+        const NOINHERITLAYOUT = ::winapi::um::winuser::WS_EX_NOINHERITLAYOUT;
+        const NOREDIRECTIONBITMAP = ::winapi::um::winuser::WS_EX_NOREDIRECTIONBITMAP;
+        const LAYOUTRTL = ::winapi::um::winuser::WS_EX_LAYOUTRTL;
+        const COMPOSITED = ::winapi::um::winuser::WS_EX_COMPOSITED;
+        const NOACTIVATE = ::winapi::um::winuser::WS_EX_NOACTIVATE;
+    }
+}
+
+
+impl Window<strategy::Foreign> {
+    pub fn new_from_attached(h: HWND) -> Option<Self> {
+        if h.is_null() {
+            return None;
+        }
+        Some(strategy::Foreign::attached_entity(WindowInner(h)))
+    }
+}
+
+impl<T: ManagedStrategy> Window<T> {
     /// ECMA-234 Clause 41 ShowWindow
     pub fn show(&self, cmd: c_int) -> Result<&Self> {
         let mut prev_state: bool = false;
@@ -388,7 +470,7 @@ impl Window {
     pub fn show_and_get_prev_state(&self, cmd: c_int, prev_state: &mut bool) -> Result<&Self> {
         use winapi::um::winuser::ShowWindow;
         unsafe {
-            let r = ShowWindow(self.0, cmd);
+            let r = ShowWindow(self.data_ref().raw_handle(), cmd);
             *prev_state = booleanize(r);
         }
         Ok(self)
@@ -397,15 +479,103 @@ impl Window {
     /// ECMA-234 Clause 41 IsWindowVisible
     pub fn is_visible(&self) -> Result<bool> {
         use winapi::um::winuser::IsWindowVisible;
-        let v = unsafe { booleanize(IsWindowVisible(self.0)) };
+        let v = unsafe { booleanize(IsWindowVisible(self.data_ref().raw_handle())) };
         Ok(v)
+    }
+
+
+
+    pub fn styles(&self) -> Result<WindowStyles> {
+        use winapi::um::winuser::GetWindowLongPtrW;
+        use winapi::um::winuser::GWL_STYLE;
+        let window_styles = unsafe {
+            let mut h = GetWindowLongPtrW(self.data_ref().raw_handle(), GWL_STYLE);
+
+            if h == 0 {
+                h = maybe_last_error(|| 0)?;
+            }
+            h
+        };
+        Ok(WindowStyles::from_bits_truncate(window_styles as _))
+    }
+
+    pub fn extended_styles(&self) -> Result<WindowExtendedStyles> {
+        use winapi::um::winuser::GetWindowLongPtrW;
+        use winapi::um::winuser::GWL_EXSTYLE;
+        let window_extended_styles = unsafe {
+            let mut h = GetWindowLongPtrW(self.data_ref().raw_handle(), GWL_EXSTYLE);
+
+            if h == 0 {
+                h = maybe_last_error(|| 0)?;
+            }
+            h
+        };
+        Ok(WindowExtendedStyles::from_bits_truncate(window_extended_styles as _))
+    }
+
+    pub fn has_menu(&self) -> Result<bool> {
+        use winapi::um::winuser::GetMenu;
+        let has_window_menu = unsafe {
+            let h = GetMenu(self.data_ref().raw_handle());
+            !h.is_null()
+        };
+        Ok(has_window_menu)
+    }
+
+    pub fn predict_window_rect_from_client_rect_and_window(rect: Rect, window: &Self) -> Result<Rect> {
+        use winapi::um::winuser::AdjustWindowRectEx;
+        let mut rect_data = rect.into();
+        let styles = window.styles()?;
+        let exstyles = window.extended_styles()?;
+        let has_menu = if styles.contains(WindowStyles::CHILD) {
+            false
+        } else {
+            window.has_menu()?
+        };
+        unsafe {
+            if !booleanize(AdjustWindowRectEx(
+                &mut rect_data,
+                styles.bits(),
+                revert_booleanize(has_menu),
+                exstyles.bits())) {
+                return last_error();
+            }
+        }
+        Ok(rect_data.into())
+    }
+
+    pub fn reposition_set_size(&self, size: Size) -> Result<&Self> {
+        use winapi::um::winuser::SetWindowPos;
+        use winapi::_core::ptr::null_mut;
+        use winapi::um::winuser::{SWP_NOACTIVATE, SWP_NOCOPYBITS, SWP_NOMOVE, SWP_NOOWNERZORDER,
+                                  SWP_NOREDRAW, SWP_NOSENDCHANGING, SWP_NOSIZE, SWP_NOZORDER};
+        /*
+        full:
+        SWP_NOACTIVATE | SWP_NOCOPYBITS | SWP_NOMOVE | SWP_NOOWNERZORDER |
+            SWP_NOREDRAW | SWP_NOSENDCHANGING | SWP_NOSIZE | SWP_NOZORDER
+        duplicates:
+        SWP_NOREPOSITION
+        */
+        let mut full_flags = SWP_NOACTIVATE | SWP_NOCOPYBITS | SWP_NOMOVE | SWP_NOOWNERZORDER |
+            SWP_NOREDRAW | SWP_NOSENDCHANGING | SWP_NOSIZE | SWP_NOZORDER;
+        full_flags &= !SWP_NOSIZE;
+
+        unsafe {
+            if !booleanize(SetWindowPos(
+                self.data_ref().raw_handle(),
+                null_mut(),
+                -1, -1,
+                size.0.cx, size.0.cy,
+                full_flags)) {
+                return last_error();
+            }
+        }
+        Ok(self)
     }
 }
 
-pub type ManagedWindowClass<'a> = Managed<'a, WindowClass>;
-pub type PermanentWindowClass = ManagedWindowClass<'static>;
-pub type ManagedWindow<'a> = Managed<'a, Window>;
-pub type PermanentWindow = ManagedWindow<'static>;
+pub type ForeignWindowClass = WindowClass<strategy::Foreign>;
+pub type ForeignWindow = Window<strategy::Foreign>;
 
 pub enum WindowProcResponse {
     Done(LRESULT),
@@ -423,17 +593,18 @@ pub struct WindowProcRequest<'a> {
 impl<'a> WindowProcRequest<'a> {
     pub fn route_paint<F>(&mut self, f: F) -> &mut Self
     where
-        F: for<'r> FnOnce(&'r Window) -> Result<()>,
+        F: for<'r> FnOnce(&'r Window<strategy::Foreign>) -> Result<()>,
     {
-        use std::mem::swap;
         use winapi::um::winuser::WM_PAINT;
         if self.msg == WM_PAINT {
-            let mut response = None;
-            swap(&mut response, &mut self.response);
-            if let Some(response) = response {
-                let window = Window(self.hwnd);
-                if (f)(&window).is_ok() {
-                    *response = WindowProcResponse::Done(0);
+            if let Some(response) = self.response.take() {
+                if let Some(window) = Window::new_from_attached(self.hwnd) {
+                    if (f)(&window).is_ok() {
+                        *response = WindowProcResponse::Done(0);
+                    }
+                } else {
+                    warn!(target: "apiw", "Received message without window target for event: {}",
+                          "route_paint");
                 }
             } else {
                 warn!(target: "apiw", "Duplicate route for event: {}", 

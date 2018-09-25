@@ -4,10 +4,10 @@ use wio::error::last_error;
 use wio::Result;
 
 use utils::CWideString;
-use windows_subsystem::window::Window;
+use windows_subsystem::window::WindowInner;
 
 pub struct MessageBoxBuilder<'a> {
-    parent: Option<&'a Window>,
+    parent: Option<&'a WindowInner>,
     message: CWideString,
     title: CWideString,
     style: UINT,
@@ -51,7 +51,7 @@ impl<'a> MessageBoxBuilder<'a> {
         use winapi::um::winuser::MessageBoxW;
         let r = unsafe {
             MessageBoxW(
-                self.parent.map_or_else(null_mut, Window::raw_handle),
+                self.parent.map_or_else(null_mut, WindowInner::raw_handle),
                 self.message.as_ptr(),
                 self.title.as_ptr(),
                 self.style,
