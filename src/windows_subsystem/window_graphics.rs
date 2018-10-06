@@ -5,18 +5,21 @@ use wio::error::last_error;
 use wio::Result;
 
 use utils::strategy;
-use utils::{ManagedEntity, ManagedData};
+use utils::booleanize;
+use utils::{ManagedData, ManagedEntity};
 
-use graphics_subsystem::device_context::DeviceContext;
 use graphics_subsystem::device_context::DeviceContextInner;
-use windows_subsystem::window::Window;
+use graphics_subsystem::device_context::LocalDeviceContext;
+use windows_subsystem::window::AnyWindow;
 
-pub type PaintDeviceContext<T: ManagedStrategy> = ManagedEntity<PaintDeviceContextInner, T>;
+pub type AnyPaintDeviceContext<T> = ManagedEntity<PaintDeviceContextInner, T>;
+
+pub type LocalPaintDeviceContext = AnyPaintDeviceContext<strategy::Local<'static>>;
 
 pub struct PaintDeviceContextInner {
     window: HWND,
     paint_structure: Option<PAINTSTRUCT>,
-    device_context: DeviceContext,
+    device_context: LocalDeviceContext,
 }
 
 impl PaintDeviceContextInner {
@@ -29,25 +32,24 @@ use std::ops::Deref;
 use std::ops::DerefMut;
 use utils::ManagedStrategy;
 
-impl<T: ManagedStrategy> Deref for PaintDeviceContext<T> {
-    type Target = DeviceContext;
-    fn deref(&self) -> &DeviceContext {
+impl<T: ManagedStrategy> Deref for AnyPaintDeviceContext<T> {
+    type Target = LocalDeviceContext;
+    fn deref(&self) -> &LocalDeviceContext {
         &self.data_ref().device_context
     }
 }
 
-impl<T: ManagedStrategy> DerefMut for PaintDeviceContext<T> {
-    fn deref_mut(&mut self) -> &mut DeviceContext {
+impl<T: ManagedStrategy> DerefMut for AnyPaintDeviceContext<T> {
+    fn deref_mut(&mut self) -> &mut LocalDeviceContext {
         &mut self.data_mut().device_context
     }
 }
 
-
 impl ManagedData for PaintDeviceContextInner {
     fn share(&self) -> Self {
-        panic!("PaintDeviceContext cannot be shared.");
+        panic!("AnyPaintDeviceContext cannot be shared.");
         /*
-        PaintDeviceContext {
+        AnyPaintDeviceContext {
             window: self.window,
             paint_structure: None,
             device_context: self.device_context.duplicate(),
@@ -66,8 +68,8 @@ impl ManagedData for PaintDeviceContextInner {
     }
 }
 
-impl<T: ManagedStrategy> Window<T> {
-    pub fn do_paint(&self) -> Result<PaintDeviceContext<strategy::Local>> {
+impl<T: ManagedStrategy> AnyWindow<T> {
+    pub fn do_paint(&self) -> Result<AnyPaintDeviceContext<strategy::Local>> {
         use std::mem::zeroed;
         use winapi::um::winuser::BeginPaint;
         let paint_dc: PaintDeviceContextInner = unsafe {
@@ -80,7 +82,9 @@ impl<T: ManagedStrategy> Window<T> {
             PaintDeviceContextInner {
                 window: hwnd,
                 paint_structure: Some(paint_structure),
-                device_context: strategy::Local::attached_entity(DeviceContextInner::new_initial_dc_from_attached(hdc)),
+                device_context: strategy::Local::attached_entity(
+                    DeviceContextInner::new_initial_dc_from_attached(hdc),
+                ),
             }
         };
         Ok(strategy::Local::attached_entity(paint_dc))
@@ -91,6 +95,30 @@ impl<T: ManagedStrategy> Window<T> {
         use winapi::um::winuser::UpdateWindow;
         unsafe {
             UpdateWindow(self.data_ref().raw_handle());
+        }
+        Ok(self)
+    }
+
+    pub fn invalidate(&self) -> Result<&Self> {
+        use winapi::um::winuser::InvalidateRect;
+        use winapi::shared::minwindef::FALSE;
+        use std::ptr::null;
+        unsafe {
+            if !booleanize(InvalidateRect(self.data_ref().raw_handle(), null(), FALSE)) {
+                return last_error();
+            }
+        }
+        Ok(self)
+    }
+
+    pub fn invalidate_and_erase(&self) -> Result<&Self> {
+        use winapi::um::winuser::InvalidateRect;
+        use winapi::shared::minwindef::TRUE;
+        use std::ptr::null;
+        unsafe {
+            if !booleanize(InvalidateRect(self.data_ref().raw_handle(), null(), TRUE)) {
+                return last_error();
+            }
         }
         Ok(self)
     }

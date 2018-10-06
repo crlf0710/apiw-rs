@@ -1,23 +1,25 @@
-use std::rc::Rc;
 use std::cell::Cell;
+use std::rc::Rc;
 
-use winapi::shared::windef::{HPEN, HBRUSH, HFONT, HBITMAP, HPALETTE};
-use winapi::shared::minwindef::HRGN;
 use winapi::ctypes::c_int;
+use winapi::shared::minwindef::HRGN;
 use winapi::shared::minwindef::WORD;
-use winapi::um::wingdi::{PS_SOLID, PS_DASH, PS_DOT, PS_DASHDOT, PS_DASHDOTDOT, PS_NULL, PS_INSIDEFRAME};
-use wio::Result;
+use winapi::shared::windef::{HBITMAP, HBRUSH, HFONT, HPALETTE, HPEN};
+use winapi::um::wingdi::{
+    PS_DASH, PS_DASHDOT, PS_DASHDOTDOT, PS_DOT, PS_INSIDEFRAME, PS_NULL, PS_SOLID,
+};
 use wio::error::last_error;
+use wio::Result;
 
 use graphics_subsystem::device_context::ScopedDeviceContext;
 use graphics_subsystem::RGBColor;
 use utils;
-use utils::ManagedEntity;
-use utils::strategy;
 use utils::booleanize;
-use utils::ManagedData;
-use utils::ManagedStrategy;
 use utils::clamp_usize_to_positive_i32;
+use utils::strategy;
+use utils::ManagedData;
+use utils::ManagedEntity;
+use utils::ManagedStrategy;
 
 #[derive(Clone)]
 pub struct PenInner(HPEN);
@@ -27,7 +29,6 @@ impl PenInner {
         self.0
     }
 }
-
 
 impl ManagedData for PenInner {
     fn share(&self) -> Self {
@@ -51,13 +52,13 @@ pub type Pen = ManagedEntity<PenInner, strategy::LocalRc<'static>>;
 pub struct PenStyle(c_int);
 
 impl PenStyle {
-    pub const SOLID : PenStyle = PenStyle(PS_SOLID as _);
-    pub const DASH : PenStyle = PenStyle(PS_DASH as _);
-    pub const DOT : PenStyle = PenStyle(PS_DOT as _);
-    pub const DASH_DOT : PenStyle = PenStyle(PS_DASHDOT as _);
-    pub const DASH_DOT_DOT : PenStyle = PenStyle(PS_DASHDOTDOT as _);
-    pub const NULL : PenStyle = PenStyle(PS_NULL as _);
-    pub const INSIDE_FRAME : PenStyle = PenStyle(PS_INSIDEFRAME as _);
+    pub const SOLID: PenStyle = PenStyle(PS_SOLID as _);
+    pub const DASH: PenStyle = PenStyle(PS_DASH as _);
+    pub const DOT: PenStyle = PenStyle(PS_DOT as _);
+    pub const DASH_DOT: PenStyle = PenStyle(PS_DASHDOT as _);
+    pub const DASH_DOT_DOT: PenStyle = PenStyle(PS_DASHDOTDOT as _);
+    pub const NULL: PenStyle = PenStyle(PS_NULL as _);
+    pub const INSIDE_FRAME: PenStyle = PenStyle(PS_INSIDEFRAME as _);
 }
 
 pub struct PenBuilder {
@@ -93,7 +94,11 @@ impl PenBuilder {
     pub fn create(self) -> Result<Pen> {
         use winapi::um::wingdi::CreatePen;
         let pen = unsafe {
-            let h = CreatePen(self.style.into(), clamp_usize_to_positive_i32(self.width), self.color.into());
+            let h = CreatePen(
+                self.style.into(),
+                clamp_usize_to_positive_i32(self.width),
+                self.color.into(),
+            );
             if h.is_null() {
                 return last_error();
             }
@@ -107,7 +112,10 @@ impl<'a> ScopedDeviceContext<'a> {
     pub fn select_pen(&mut self, pen: Pen) -> Result<&mut Self> {
         use winapi::um::wingdi::SelectObject;
         let old_pen = unsafe {
-            let h = SelectObject(self.data_ref().raw_handle(), pen.data_ref().raw_handle() as _);
+            let h = SelectObject(
+                self.data_ref().raw_handle(),
+                pen.data_ref().raw_handle() as _,
+            );
             if h.is_null() {
                 return last_error();
             }
@@ -169,12 +177,14 @@ impl Bitmap {
     }
 }
 
-
 impl<'a> ScopedDeviceContext<'a> {
     pub fn select_bitmap(&mut self, bitmap: Bitmap) -> Result<&mut Self> {
         use winapi::um::wingdi::SelectObject;
         let old_pen = unsafe {
-            let h = SelectObject(self.data_ref().raw_handle(), bitmap.data_ref().raw_handle() as _);
+            let h = SelectObject(
+                self.data_ref().raw_handle(),
+                bitmap.data_ref().raw_handle() as _,
+            );
             if h.is_null() {
                 return last_error();
             }

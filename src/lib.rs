@@ -25,8 +25,8 @@ pub mod full_windows_api {
     pub use winapi::*;
 }
 
-pub use wio::Result;
 pub use wio::error::last_error;
+pub use wio::Result;
 
 pub fn maybe_last_error<T, D: FnOnce() -> T>(f: D) -> wio::Result<T> {
     let err = last_error();

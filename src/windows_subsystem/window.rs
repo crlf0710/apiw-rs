@@ -1,30 +1,33 @@
+use winapi;
 use winapi::ctypes::c_int;
 use winapi::shared::minwindef::{ATOM, HINSTANCE};
 use winapi::shared::minwindef::{DWORD, LPVOID, UINT, WORD};
 use winapi::shared::minwindef::{LPARAM, LRESULT, WPARAM};
+use winapi::shared::basetsd::UINT_PTR;
 use winapi::shared::windef::HBRUSH;
 use winapi::shared::windef::HCURSOR;
 use winapi::shared::windef::HICON;
 use winapi::shared::windef::HMENU;
 use winapi::shared::windef::HWND;
 use winapi::um::winuser::WNDPROC;
-use {Result, last_error, maybe_last_error};
+use {last_error, maybe_last_error, Result};
 
 use utils::booleanize;
-use utils::revert_booleanize;
 use utils::exe_instance;
+use utils::revert_booleanize;
 use utils::CWideString;
 use utils::ManagedStrategy;
 //use utils::{Handle, Managed, Temporary};
 //use utils::System;
-use utils::ManagedEntity;
-use utils::strategy;
-use utils::ManagedData;
-use utils::OkOrLastError;
 use graphics_subsystem::Rect;
 use graphics_subsystem::Size;
+use utils::strategy;
+use utils::ManagedData;
+use utils::ManagedEntity;
+use utils::OkOrLastError;
 
-pub type WindowClass<T: ManagedStrategy> = ManagedEntity<WindowClassInner, T>;
+pub type AnyWindowClass<T> = ManagedEntity<WindowClassInner, T>;
+pub type ForeignWindowClass = AnyWindowClass<strategy::Foreign>;
 
 #[derive(Clone)]
 pub enum WindowClassInner {
@@ -57,18 +60,17 @@ impl ManagedData for WindowClassInner {
     }
 }
 
-impl WindowClass<strategy::Foreign> {
-    fn new_with_atom(v: ATOM) -> WindowClass<strategy::Foreign> {
+impl ForeignWindowClass {
+    fn new_with_atom(v: ATOM) -> ForeignWindowClass {
         strategy::Foreign::attached_entity(WindowClassInner::Atom(v))
     }
 }
 
-impl<T: ManagedStrategy> WindowClass<T> {
+impl<T: ManagedStrategy> ManagedEntity<WindowClassInner, T> {
     pub(crate) fn as_ptr_or_atom_ptr(&self) -> *const u16 {
         self.data_ref().as_ptr_or_atom_ptr()
     }
 }
-
 
 pub(crate) enum ResourceIDOrIDString {
     ID(WORD),
@@ -219,7 +221,7 @@ impl WindowClassBuilder {
         self
     }
 
-    pub fn create_managed(self) -> Result<WindowClass<strategy::Foreign>> {
+    pub fn create_managed(self) -> Result<ForeignWindowClass> {
         use std::ptr::{null, null_mut};
         use winapi::um::winuser::RegisterClassExW;
         use winapi::um::winuser::WNDCLASSEXW;
@@ -251,7 +253,7 @@ impl WindowClassBuilder {
             }
             h
         };
-        Ok(WindowClass::new_with_atom(window_class))
+        Ok(ForeignWindowClass::new_with_atom(window_class))
     }
 }
 
@@ -289,7 +291,8 @@ impl MenuOrChildWindowId {
     }
 }
 
-pub type Window<T: ManagedStrategy> = ManagedEntity<WindowInner, T>;
+pub type AnyWindow<T> = ManagedEntity<WindowInner, T>;
+pub type ForeignWindow = AnyWindow<strategy::Foreign>;
 
 #[derive(Clone)]
 pub struct WindowInner(HWND);
@@ -309,7 +312,7 @@ impl ManagedData for WindowInner {
         unsafe {
             let succeeded = booleanize(DestroyWindow(self.raw_handle()));
             if !succeeded {
-                warn!(target: "apiw", "Failed to cleanup {}, last error: {:?}", "Window", last_error::<()>());
+                warn!(target: "apiw", "Failed to cleanup {}, last error: {:?}", "AnyWindow", last_error::<()>());
             }
         }
     }
@@ -328,7 +331,7 @@ pub struct WindowBuilder<'a, 'b> {
 }
 
 impl<'a, 'b> WindowBuilder<'a, 'b> {
-    pub fn new(window_class: &'a WindowClass<impl ManagedStrategy>) -> Self {
+    pub fn new(window_class: &'a AnyWindowClass<impl ManagedStrategy>) -> Self {
         Self {
             class: window_class.data_ref(),
             parent: None,
@@ -353,7 +356,7 @@ impl<'a, 'b> WindowBuilder<'a, 'b> {
     }
 
     /// ECMA-234 Clause 27 CreateWindow CreateWindowEx
-    pub fn create(self) -> Result<Window<strategy::Foreign>> {
+    pub fn create(self) -> Result<AnyWindow<strategy::Foreign>> {
         use std::ptr::{null, null_mut};
         use winapi::um::winuser::CreateWindowExW;
         use winapi::um::winuser::CW_USEDEFAULT;
@@ -381,7 +384,7 @@ impl<'a, 'b> WindowBuilder<'a, 'b> {
             };
             h
         };
-        Window::new_from_attached(window).ok_or_last_error()
+        AnyWindow::new_from_attached(window).ok_or_last_error()
     }
 }
 
@@ -449,8 +452,7 @@ bitflags! {
     }
 }
 
-
-impl Window<strategy::Foreign> {
+impl ForeignWindow {
     pub fn new_from_attached(h: HWND) -> Option<Self> {
         if h.is_null() {
             return None;
@@ -459,7 +461,7 @@ impl Window<strategy::Foreign> {
     }
 }
 
-impl<T: ManagedStrategy> Window<T> {
+impl<T: ManagedStrategy> AnyWindow<T> {
     /// ECMA-234 Clause 41 ShowWindow
     pub fn show(&self, cmd: c_int) -> Result<&Self> {
         let mut prev_state: bool = false;
@@ -482,8 +484,6 @@ impl<T: ManagedStrategy> Window<T> {
         let v = unsafe { booleanize(IsWindowVisible(self.data_ref().raw_handle())) };
         Ok(v)
     }
-
-
 
     pub fn styles(&self) -> Result<WindowStyles> {
         use winapi::um::winuser::GetWindowLongPtrW;
@@ -510,7 +510,9 @@ impl<T: ManagedStrategy> Window<T> {
             }
             h
         };
-        Ok(WindowExtendedStyles::from_bits_truncate(window_extended_styles as _))
+        Ok(WindowExtendedStyles::from_bits_truncate(
+            window_extended_styles as _,
+        ))
     }
 
     pub fn has_menu(&self) -> Result<bool> {
@@ -522,7 +524,10 @@ impl<T: ManagedStrategy> Window<T> {
         Ok(has_window_menu)
     }
 
-    pub fn predict_window_rect_from_client_rect_and_window(rect: Rect, window: &Self) -> Result<Rect> {
+    pub fn predict_window_rect_from_client_rect_and_window(
+        rect: Rect,
+        window: &Self,
+    ) -> Result<Rect> {
         use winapi::um::winuser::AdjustWindowRectEx;
         let mut rect_data = rect.into();
         let styles = window.styles()?;
@@ -537,7 +542,8 @@ impl<T: ManagedStrategy> Window<T> {
                 &mut rect_data,
                 styles.bits(),
                 revert_booleanize(has_menu),
-                exstyles.bits())) {
+                exstyles.bits(),
+            )) {
                 return last_error();
             }
         }
@@ -545,10 +551,12 @@ impl<T: ManagedStrategy> Window<T> {
     }
 
     pub fn reposition_set_size(&self, size: Size) -> Result<&Self> {
-        use winapi::um::winuser::SetWindowPos;
         use winapi::_core::ptr::null_mut;
-        use winapi::um::winuser::{SWP_NOACTIVATE, SWP_NOCOPYBITS, SWP_NOMOVE, SWP_NOOWNERZORDER,
-                                  SWP_NOREDRAW, SWP_NOSENDCHANGING, SWP_NOSIZE, SWP_NOZORDER};
+        use winapi::um::winuser::SetWindowPos;
+        use winapi::um::winuser::{
+            SWP_NOACTIVATE, SWP_NOCOPYBITS, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOREDRAW,
+            SWP_NOSENDCHANGING, SWP_NOSIZE, SWP_NOZORDER,
+        };
         /*
         full:
         SWP_NOACTIVATE | SWP_NOCOPYBITS | SWP_NOMOVE | SWP_NOOWNERZORDER |
@@ -556,17 +564,26 @@ impl<T: ManagedStrategy> Window<T> {
         duplicates:
         SWP_NOREPOSITION
         */
-        let mut full_flags = SWP_NOACTIVATE | SWP_NOCOPYBITS | SWP_NOMOVE | SWP_NOOWNERZORDER |
-            SWP_NOREDRAW | SWP_NOSENDCHANGING | SWP_NOSIZE | SWP_NOZORDER;
+        let mut full_flags = SWP_NOACTIVATE
+            | SWP_NOCOPYBITS
+            | SWP_NOMOVE
+            | SWP_NOOWNERZORDER
+            | SWP_NOREDRAW
+            | SWP_NOSENDCHANGING
+            | SWP_NOSIZE
+            | SWP_NOZORDER;
         full_flags &= !SWP_NOSIZE;
 
         unsafe {
             if !booleanize(SetWindowPos(
                 self.data_ref().raw_handle(),
                 null_mut(),
-                -1, -1,
-                size.0.cx, size.0.cy,
-                full_flags)) {
+                -1,
+                -1,
+                size.0.cx,
+                size.0.cy,
+                full_flags,
+            )) {
                 return last_error();
             }
         }
@@ -574,31 +591,77 @@ impl<T: ManagedStrategy> Window<T> {
     }
 }
 
-pub type ForeignWindowClass = WindowClass<strategy::Foreign>;
-pub type ForeignWindow = Window<strategy::Foreign>;
-
 pub enum WindowProcResponse {
     Done(LRESULT),
     Fallback,
 }
 
-pub struct WindowProcRequest<'a> {
-    pub hwnd: HWND,
+#[derive(Copy, Clone)]
+pub struct WindowProcRequestArgs {
     pub msg: UINT,
     pub wparam: WPARAM,
     pub lparam: LPARAM,
+}
+
+use graphics_subsystem::Point;
+
+pub struct MouseEventArgs<'a>(pub &'a WindowProcRequestArgs);
+
+#[repr(u32)]
+pub enum MouseEventArgType {
+    LeftButtonDown = winapi::um::winuser::WM_LBUTTONDOWN,
+    LeftButtonUp = winapi::um::winuser::WM_LBUTTONUP,
+    RightButtonDown = winapi::um::winuser::WM_RBUTTONDOWN,
+    RightButtonUp = winapi::um::winuser::WM_RBUTTONUP,
+    MiddleButtonDown = winapi::um::winuser::WM_MBUTTONDOWN,
+    MiddleButtonUp = winapi::um::winuser::WM_MBUTTONUP,
+
+    #[doc(hidden)]
+    #[allow(non_camel_case_types)]
+    __non_exhuastive,
+}
+
+impl<'a> MouseEventArgs<'a> {
+    pub fn kind(&self) -> Option<MouseEventArgType> {
+        use winapi::um::winuser::{WM_LBUTTONDOWN, WM_LBUTTONUP, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP};
+
+        match self.0.msg {
+            WM_LBUTTONDOWN => Some(MouseEventArgType::LeftButtonDown),
+            WM_LBUTTONUP => Some(MouseEventArgType::LeftButtonUp),
+            WM_RBUTTONDOWN => Some(MouseEventArgType::RightButtonDown),
+            WM_RBUTTONUP => Some(MouseEventArgType::RightButtonUp),
+            WM_MBUTTONDOWN => Some(MouseEventArgType::MiddleButtonDown),
+            WM_MBUTTONUP => Some(MouseEventArgType::MiddleButtonUp),
+            _ => None
+        }
+    }
+    pub fn cursor_coordinate(&self) -> Option<Point> {
+        use winapi::um::winuser::{WM_MOUSEACTIVATE, WM_MOUSELEAVE};
+        use winapi::shared::windowsx::{GET_X_LPARAM, GET_Y_LPARAM};
+        match self.0.msg {
+            WM_MOUSEACTIVATE | WM_MOUSELEAVE => None,
+            _ => {
+                Some(Point::new(GET_X_LPARAM(self.0.lparam) as _,GET_Y_LPARAM(self.0.lparam) as _))
+            }
+        }
+    }
+}
+
+pub struct WindowProcRequest<'a> {
+    pub hwnd: HWND,
+    pub args: WindowProcRequestArgs,
     pub response: Option<&'a mut WindowProcResponse>,
 }
 
 impl<'a> WindowProcRequest<'a> {
     pub fn route_paint<F>(&mut self, f: F) -> &mut Self
     where
-        F: for<'r> FnOnce(&'r Window<strategy::Foreign>) -> Result<()>,
+        F: for<'r> FnOnce(&'r ForeignWindow) -> Result<()>,
     {
         use winapi::um::winuser::WM_PAINT;
-        if self.msg == WM_PAINT {
+        if self.args.msg == WM_PAINT {
             if let Some(response) = self.response.take() {
-                if let Some(window) = Window::new_from_attached(self.hwnd) {
+                if let Some(window) = AnyWindow::new_from_attached(self.hwnd) {
                     if (f)(&window).is_ok() {
                         *response = WindowProcResponse::Done(0);
                     }
@@ -607,8 +670,57 @@ impl<'a> WindowProcRequest<'a> {
                           "route_paint");
                 }
             } else {
-                warn!(target: "apiw", "Duplicate route for event: {}", 
+                warn!(target: "apiw", "Duplicate route for event: {}",
                     "route_paint");
+            }
+        }
+        self
+    }
+
+    pub fn route_close<F>(&mut self, f: F) -> &mut Self
+        where
+            F: for<'r> FnOnce(&'r ForeignWindow) -> Result<()>,
+    {
+        use winapi::um::winuser::WM_CLOSE;
+        if self.args.msg == WM_CLOSE {
+            if let Some(response) = self.response.take() {
+                if let Some(window) = AnyWindow::new_from_attached(self.hwnd) {
+                    if (f)(&window).is_ok() {
+                        *response = WindowProcResponse::Done(0);
+                    }
+                } else {
+                    warn!(target: "apiw", "Received message without window target for event: {}",
+                          "route_close");
+                }
+            } else {
+                warn!(target: "apiw", "Duplicate route for event: {}",
+                      "route_close");
+            }
+        }
+        self
+    }
+
+    pub fn route_mouse<F>(&mut self, f: F) -> &mut Self
+        where
+            F: for<'r, 's> FnOnce(&'r ForeignWindow, MouseEventArgs<'s>) -> Result<bool>,
+    {
+        use winapi::um::winuser::{
+            WM_MOUSEFIRST, WM_MOUSELAST,
+        };
+        if self.args.msg >= WM_MOUSEFIRST && self.args.msg <= WM_MOUSELAST {
+            if let Some(response) = self.response.take() {
+                if let Some(window) = AnyWindow::new_from_attached(self.hwnd) {
+                    let mouse_args = MouseEventArgs(&self.args);
+                    if let Ok(true) = (f)(&window, mouse_args) {
+                        *response = WindowProcResponse::Done(0);
+                    }
+                } else {
+                    warn!(target: "apiw", "Received message without window target for event: {}",
+                          "route_mouse");
+                }
+            } else {
+                warn!(target: "apiw", "Duplicate route for event: {}",
+                      "route_mouse");
             }
         }
         self
@@ -628,9 +740,11 @@ macro_rules! window_proc {
             {
                 let request = $crate::windows_subsystem::window::WindowProcRequest {
                     hwnd,
-                    msg,
-                    wparam,
-                    lparam,
+                    args: $crate::windows_subsystem::window::WindowProcRequestArgs {
+                        msg,
+                        wparam,
+                        lparam,
+                        },
                     response: Some(&mut response),
                 };
 
@@ -643,6 +757,61 @@ macro_rules! window_proc {
                 WindowProcResponse::Fallback => {
                     $crate::full_windows_api::um::winuser::DefWindowProcW(hwnd, msg, wparam, lparam)
                 }
+            }
+        }
+        translator
+    }};
+}
+
+use std::num::NonZeroUsize;
+use std::time::Duration;
+
+type TimerProcInner = unsafe extern "system" fn(_: HWND, _: UINT, _: UINT_PTR, _: DWORD);
+
+impl<T: ManagedStrategy> AnyWindow<T> {
+    pub fn set_timer_with_id(&self, id: NonZeroUsize, interval: Duration, timer_proc: TimerProcInner) -> Result<&Self> {
+        use winapi::um::winuser::USER_TIMER_MAXIMUM;
+        use winapi::um::winuser::SetTimer;
+        unsafe {
+            let mut interval = interval.as_secs().saturating_mul(60).saturating_add(interval.subsec_millis() as _);
+            if interval > USER_TIMER_MAXIMUM as _{
+                interval = USER_TIMER_MAXIMUM as _;
+            }
+            if 0 == SetTimer(self.data_ref().raw_handle(),
+                             id.get(), interval as _, Some(timer_proc)) {
+                return last_error();
+            }
+        }
+        Ok(self)
+    }
+}
+
+
+pub struct TimerProcRequest {
+    pub hwnd: HWND,
+}
+
+impl TimerProcRequest {
+    pub fn window(&self) -> Option<ForeignWindow> {
+        ForeignWindow::new_from_attached(self.hwnd)
+    }
+}
+
+#[macro_export]
+macro_rules! timer_proc {
+    ($nest_proc:expr) => {{
+        unsafe extern "system" fn translator(
+            hwnd: $crate::full_windows_api::shared::windef::HWND,
+            arg2: $crate::full_windows_api::shared::minwindef::UINT,
+            arg3: $crate::full_windows_api::shared::basetsd::UINT_PTR,
+            arg4: $crate::full_windows_api::shared::minwindef::DWORD,
+        ) {
+            {
+                let request = $crate::windows_subsystem::window::TimerProcRequest {
+                    hwnd
+                };
+
+                ($nest_proc)(request);
             }
         }
         translator

@@ -1,8 +1,8 @@
 use winapi;
 use winapi::shared::minwindef::DWORD;
 
-use utils::clamp_isize_to_i32;
 use utils::clamp_i32_to_positive_i32;
+use utils::clamp_isize_to_i32;
 use utils::clamp_usize_to_positive_i32;
 use utils::clamp_usize_to_positive_isize;
 
@@ -32,10 +32,27 @@ impl Point {
     }
 
     pub fn offset(&self, off_x: isize, off_y: isize) -> Self {
-        Point::new((self.0.x as isize).saturating_add(off_x),
-                   (self.0.y as isize).saturating_add(off_y))
+        Point::new(
+            (self.0.x as isize).saturating_add(off_x),
+            (self.0.y as isize).saturating_add(off_y),
+        )
     }
 }
+
+use std::fmt::{self, Debug, Formatter};
+
+impl PartialEq<Self> for Point {
+    fn eq(&self, rhs: &Self) -> bool {
+        self.0.x == rhs.0.x && self.0.y == rhs.0.y
+    }
+}
+
+impl Debug for Point {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+        write!(f, "Point(x={:?}, y={:?})", self.x(), self.y())
+    }
+}
+
 
 #[derive(Copy, Clone, Into)]
 pub struct Size(pub(crate) winapi::shared::windef::SIZE);
@@ -57,6 +74,11 @@ impl Size {
     }
 }
 
+impl Debug for Size {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+        write!(f, "Size(w={:?}, h={:?})", self.cx(), self.cy())
+    }
+}
 
 #[derive(Copy, Clone)]
 pub struct Rect {
@@ -73,31 +95,66 @@ impl Rect {
         self.size
     }
 
-    pub fn left_top(&self) -> Point {
+    pub fn top_left(&self) -> Point {
         self.pos
     }
 
-    pub fn left_bottom(&self) -> Point {
-        Point::new(self.pos.x(), self.pos.y().saturating_add(clamp_usize_to_positive_isize(self.size.cy())))
+    pub fn bottom_left(&self) -> Point {
+        Point::new(
+            self.pos.x(),
+            self.pos
+                .y()
+                .saturating_add(clamp_usize_to_positive_isize(self.size.cy())),
+        )
     }
-    pub fn right_top(&self) -> Point {
-        Point::new(self.pos.x().saturating_add(clamp_usize_to_positive_isize(self.size.cx())),
-            self.pos.y())
+    pub fn top_right(&self) -> Point {
+        Point::new(
+            self.pos
+                .x()
+                .saturating_add(clamp_usize_to_positive_isize(self.size.cx())),
+            self.pos.y(),
+        )
     }
-    pub fn right_bottom(&self) -> Point {
-        Point::new(self.pos.x().saturating_add(clamp_usize_to_positive_isize(self.size.cx())), 
-            self.pos.y().saturating_add(clamp_usize_to_positive_isize(self.size.cy())))
+    pub fn bottom_right(&self) -> Point {
+        Point::new(
+            self.pos
+                .x()
+                .saturating_add(clamp_usize_to_positive_isize(self.size.cx())),
+            self.pos
+                .y()
+                .saturating_add(clamp_usize_to_positive_isize(self.size.cy())),
+        )
     }
 
     pub fn deflate(&self, distance: usize) -> Self {
         Rect {
             pos: Point::new(
-                self.pos.x().saturating_sub(clamp_usize_to_positive_isize(distance)),
-                self.pos.y().saturating_sub(clamp_usize_to_positive_isize(distance))),
+                self.pos
+                    .x()
+                    .saturating_sub(clamp_usize_to_positive_isize(distance)),
+                self.pos
+                    .y()
+                    .saturating_sub(clamp_usize_to_positive_isize(distance)),
+            ),
             size: Size::new(
-                self.size.cx().saturating_add(distance.saturating_add(distance)),
-                self.size.cy().saturating_add(distance.saturating_add(distance))),
+                self.size
+                    .cx()
+                    .saturating_add(distance.saturating_add(distance)),
+                self.size
+                    .cy()
+                    .saturating_add(distance.saturating_add(distance)),
+            ),
         }
+    }
+
+    pub fn contains(&self, pt: Point) -> bool {
+        let bottom_right = self.bottom_right();
+        if pt.0.x >= self.pos.0.x && pt.0.x < bottom_right.0.x {
+            if pt.0.y >= self.pos.0.y && pt.0.y < bottom_right.0.y {
+                return true;
+            }
+        }
+        false
     }
 }
 
@@ -106,16 +163,18 @@ impl From<RECT> for Rect {
     fn from(v: RECT) -> Self {
         Self {
             pos: Point::new(v.left as isize, v.top as isize),
-            size: Size::new(clamp_i32_to_positive_i32(v.right - v.left) as usize,
-                            clamp_i32_to_positive_i32(v.bottom - v.top) as usize),
+            size: Size::new(
+                clamp_i32_to_positive_i32(v.right - v.left) as usize,
+                clamp_i32_to_positive_i32(v.bottom - v.top) as usize,
+            ),
         }
     }
 }
 
 impl From<Rect> for RECT {
     fn from(v: Rect) -> Self {
-        let left_top = v.left_top();
-        let right_bottom = v.right_bottom();
+        let left_top = v.top_left();
+        let right_bottom = v.bottom_right();
         Self {
             left: left_top.0.x,
             right: right_bottom.0.x,
@@ -125,15 +184,14 @@ impl From<Rect> for RECT {
     }
 }
 
-
-#[derive(Copy, Clone, Into)]
+#[derive(Copy, Clone, Into, PartialEq)]
 pub struct RGBColor(winapi::shared::windef::COLORREF);
 
 macro_rules! winapi_rgb_value {
-    ($r: expr, $g: expr, $b: expr) => {
-        $r as ::winapi::shared::windef::COLORREF 
+    ($r:expr, $g:expr, $b:expr) => {
+        $r as ::winapi::shared::windef::COLORREF
             | (($g as ::winapi::shared::windef::COLORREF) << 8)
-            | (($b as ::winapi::shared::windef::COLORREF) << 16)    
+            | (($b as ::winapi::shared::windef::COLORREF) << 16)
     };
 }
 
@@ -144,6 +202,7 @@ impl RGBColor {
     pub const RED: RGBColor = RGBColor(winapi_rgb_value!(255, 0, 0));
     pub const GREEN: RGBColor = RGBColor(winapi_rgb_value!(0, 255, 0));
     pub const BLUE: RGBColor = RGBColor(winapi_rgb_value!(0, 0, 255));
+    pub const MAGENTA: RGBColor = RGBColor(winapi_rgb_value!(255, 0, 255));
 
     pub fn new(red: u8, green: u8, blue: u8) -> RGBColor {
         RGBColor(winapi_rgb_value!(red, green, blue))
@@ -454,19 +513,34 @@ impl TenaryROP {
 
     const INTERNAL_VALUE_NOMIRRORBITMAP: u32 = 0x80000000;
 
-    pub const BLACKNESS: TenaryROP = TenaryROP((Self::INTERNAL_OP_0.0 as u32) << 16 | Self::INTERNAL_OP_0.1 as u32);
-    pub const NOTSRCERASE: TenaryROP = TenaryROP((Self::INTERNAL_OP_DSon.0 as u32) << 16 | Self::INTERNAL_OP_DSon.1 as u32);
-    pub const NOTSRCCOPY: TenaryROP = TenaryROP((Self::INTERNAL_OP_Sn.0 as u32) << 16 | Self::INTERNAL_OP_Sn.1 as u32);
-    pub const SRCERASE: TenaryROP = TenaryROP((Self::INTERNAL_OP_SDna.0 as u32) << 16 | Self::INTERNAL_OP_SDna.1 as u32);
-    pub const DSTINVERT: TenaryROP = TenaryROP((Self::INTERNAL_OP_Dn.0 as u32) << 16 | Self::INTERNAL_OP_Dn.1 as u32);
-    pub const PATINVERT: TenaryROP = TenaryROP((Self::INTERNAL_OP_DPx.0 as u32) << 16 | Self::INTERNAL_OP_DPx.1 as u32);
-    pub const SRCINVERT: TenaryROP = TenaryROP((Self::INTERNAL_OP_DSx.0 as u32) << 16 | Self::INTERNAL_OP_DSx.1 as u32);
-    pub const SRCAND: TenaryROP = TenaryROP((Self::INTERNAL_OP_DSa.0 as u32) << 16 | Self::INTERNAL_OP_DSa.1 as u32);
-    pub const MERGEPAINT: TenaryROP = TenaryROP((Self::INTERNAL_OP_DSno.0 as u32) << 16 | Self::INTERNAL_OP_DSno.1 as u32);
-    pub const MERGECOPY: TenaryROP = TenaryROP((Self::INTERNAL_OP_PSa.0 as u32) << 16 | Self::INTERNAL_OP_PSa.1 as u32);
-    pub const SRCCOPY: TenaryROP = TenaryROP((Self::INTERNAL_OP_S.0 as u32) << 16 | Self::INTERNAL_OP_S.1 as u32);
-    pub const SRCPAINT: TenaryROP = TenaryROP((Self::INTERNAL_OP_DSo.0 as u32) << 16 | Self::INTERNAL_OP_DSo.1 as u32);
-    pub const PATCOPY: TenaryROP = TenaryROP((Self::INTERNAL_OP_P.0 as u32) << 16 | Self::INTERNAL_OP_P.1 as u32);
-    pub const PATPAINT: TenaryROP = TenaryROP((Self::INTERNAL_OP_DPSnoo.0 as u32) << 16 | Self::INTERNAL_OP_DPSnoo.1 as u32);
-    pub const WHITENESS: TenaryROP = TenaryROP((Self::INTERNAL_OP_1.0 as u32) << 16 | Self::INTERNAL_OP_1.1 as u32);
+    pub const BLACKNESS: TenaryROP =
+        TenaryROP((Self::INTERNAL_OP_0.0 as u32) << 16 | Self::INTERNAL_OP_0.1 as u32);
+    pub const NOTSRCERASE: TenaryROP =
+        TenaryROP((Self::INTERNAL_OP_DSon.0 as u32) << 16 | Self::INTERNAL_OP_DSon.1 as u32);
+    pub const NOTSRCCOPY: TenaryROP =
+        TenaryROP((Self::INTERNAL_OP_Sn.0 as u32) << 16 | Self::INTERNAL_OP_Sn.1 as u32);
+    pub const SRCERASE: TenaryROP =
+        TenaryROP((Self::INTERNAL_OP_SDna.0 as u32) << 16 | Self::INTERNAL_OP_SDna.1 as u32);
+    pub const DSTINVERT: TenaryROP =
+        TenaryROP((Self::INTERNAL_OP_Dn.0 as u32) << 16 | Self::INTERNAL_OP_Dn.1 as u32);
+    pub const PATINVERT: TenaryROP =
+        TenaryROP((Self::INTERNAL_OP_DPx.0 as u32) << 16 | Self::INTERNAL_OP_DPx.1 as u32);
+    pub const SRCINVERT: TenaryROP =
+        TenaryROP((Self::INTERNAL_OP_DSx.0 as u32) << 16 | Self::INTERNAL_OP_DSx.1 as u32);
+    pub const SRCAND: TenaryROP =
+        TenaryROP((Self::INTERNAL_OP_DSa.0 as u32) << 16 | Self::INTERNAL_OP_DSa.1 as u32);
+    pub const MERGEPAINT: TenaryROP =
+        TenaryROP((Self::INTERNAL_OP_DSno.0 as u32) << 16 | Self::INTERNAL_OP_DSno.1 as u32);
+    pub const MERGECOPY: TenaryROP =
+        TenaryROP((Self::INTERNAL_OP_PSa.0 as u32) << 16 | Self::INTERNAL_OP_PSa.1 as u32);
+    pub const SRCCOPY: TenaryROP =
+        TenaryROP((Self::INTERNAL_OP_S.0 as u32) << 16 | Self::INTERNAL_OP_S.1 as u32);
+    pub const SRCPAINT: TenaryROP =
+        TenaryROP((Self::INTERNAL_OP_DSo.0 as u32) << 16 | Self::INTERNAL_OP_DSo.1 as u32);
+    pub const PATCOPY: TenaryROP =
+        TenaryROP((Self::INTERNAL_OP_P.0 as u32) << 16 | Self::INTERNAL_OP_P.1 as u32);
+    pub const PATPAINT: TenaryROP =
+        TenaryROP((Self::INTERNAL_OP_DPSnoo.0 as u32) << 16 | Self::INTERNAL_OP_DPSnoo.1 as u32);
+    pub const WHITENESS: TenaryROP =
+        TenaryROP((Self::INTERNAL_OP_1.0 as u32) << 16 | Self::INTERNAL_OP_1.1 as u32);
 }

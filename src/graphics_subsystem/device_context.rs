@@ -3,23 +3,25 @@ use wio::error::last_error;
 use wio::Result;
 
 use utils::booleanize;
-use utils::ManagedEntity;
-use utils::ManagedData;
 use utils::strategy;
+use utils::ManagedData;
+use utils::ManagedEntity;
+use utils::ManagedStrategy;
 
-use graphics_subsystem::object::{Pen, Bitmap};
-use winapi::shared::windef::HPEN;
+use graphics_subsystem::object::{Bitmap, Pen};
 use winapi::shared::windef::HBITMAP;
+use winapi::shared::windef::HPEN;
 
-pub type ScopedDeviceContext<'a> = ManagedEntity<DeviceContextInner, strategy::Local<'a>>;
-pub type DeviceContext = ScopedDeviceContext<'static>;
+pub type AnyDeviceContext<T> = ManagedEntity<DeviceContextInner, T>;
+pub type ScopedDeviceContext<'a> = AnyDeviceContext<strategy::Local<'a>>;
+pub type LocalDeviceContext = ScopedDeviceContext<'static>;
 
 pub struct DeviceContextInner {
     handle: HDC,
     tracking_pen_original: Option<HPEN>,
-    tracking_pen_active:   Option<Pen>,
+    tracking_pen_active: Option<Pen>,
     tracking_bitmap_original: Option<HBITMAP>,
-    tracking_bitmap_active:   Option<Bitmap>,
+    tracking_bitmap_active: Option<Bitmap>,
 }
 
 impl DeviceContextInner {
@@ -57,7 +59,6 @@ impl DeviceContextInner {
         self.tracking_bitmap_active = Some(v);
     }
 
-
     pub(crate) fn restore_to_tracked_state(&mut self) {
         use winapi::um::wingdi::SelectObject;
 
@@ -82,7 +83,6 @@ impl DeviceContextInner {
             }
         }
         self.tracking_bitmap_active = None;
-
     }
 }
 
@@ -99,7 +99,7 @@ impl ManagedData for DeviceContextInner {
         unsafe {
             let succeeded = booleanize(DeleteDC(self.raw_handle()));
             if !succeeded {
-                warn!(target: "apiw", "Failed to cleanup {}, last error: {:?}", "DeviceContext", last_error::<()>());
+                warn!(target: "apiw", "Failed to cleanup {}, last error: {:?}", "LocalDeviceContext", last_error::<()>());
             }
         }
     }
@@ -111,8 +111,8 @@ impl<'a> ScopedDeviceContext<'a> {
     }
 }
 
-impl DeviceContext {
-    pub fn new_compatible_memory_dc(dc: &ScopedDeviceContext) -> Result<DeviceContext> {
+impl LocalDeviceContext {
+    pub fn new_compatible_memory_dc(dc: &ScopedDeviceContext) -> Result<LocalDeviceContext> {
         use winapi::um::wingdi::CreateCompatibleDC;
         let memdc = unsafe {
             let h = CreateCompatibleDC(dc.data_ref().raw_handle());
@@ -122,6 +122,24 @@ impl DeviceContext {
             h
         };
 
-        Ok(strategy::Local::attached_entity(DeviceContextInner::new_initial_dc_from_attached(memdc)))
+        Ok(strategy::Local::attached_entity(
+            DeviceContextInner::new_initial_dc_from_attached(memdc),
+        ))
+    }
+
+    pub fn new_compatible_memory_dc_for_current_screen() -> Result<LocalDeviceContext> {
+        use winapi::um::wingdi::CreateCompatibleDC;
+        use std::ptr::null_mut;
+        let memdc = unsafe {
+            let h = CreateCompatibleDC(null_mut());
+            if h.is_null() {
+                return last_error();
+            }
+            h
+        };
+
+        Ok(strategy::Local::attached_entity(
+            DeviceContextInner::new_initial_dc_from_attached(memdc),
+        ))
     }
 }

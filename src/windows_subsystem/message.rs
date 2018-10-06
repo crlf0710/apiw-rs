@@ -82,11 +82,11 @@ pub struct MessagePos(DWORD);
 #[derive(From)]
 pub struct MessageTime(LONG);
 
-pub struct MessageLoop;
+pub struct ForeignMessageLoop;
 
-impl MessageLoop {
+impl ForeignMessageLoop {
     pub fn for_current_thread() -> Self {
-        MessageLoop
+        ForeignMessageLoop
     }
 
     /// ECMA-234 Clause 8 GetMessage

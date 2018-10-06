@@ -2,14 +2,14 @@ use std::ptr::null_mut;
 use winapi;
 use winapi::shared::minwindef::BOOL;
 use winapi::shared::minwindef::HINSTANCE;
-use wio::wide::{ToWide};
+use wio::wide::ToWide;
 use wio::Result;
 
 pub(crate) fn booleanize(v: BOOL) -> bool {
     v != 0
 }
 pub(crate) fn revert_booleanize(v: bool) -> BOOL {
-    use winapi::shared::minwindef::{TRUE, FALSE};
+    use winapi::shared::minwindef::{FALSE, TRUE};
     if v {
         TRUE
     } else {
@@ -19,7 +19,7 @@ pub(crate) fn revert_booleanize(v: bool) -> BOOL {
 
 #[inline]
 pub(crate) fn clamp_usize_to_positive_isize(v: usize) -> isize {
-    use std::isize::{MAX};
+    use std::isize::MAX;
     if v > MAX as _ {
         MAX
     } else {
@@ -50,7 +50,7 @@ pub(crate) fn clamp_i32_to_positive_i32(v: i32) -> i32 {
 
 #[inline]
 pub(crate) fn clamp_usize_to_positive_i32(v: usize) -> i32 {
-    use std::i32::{MAX};
+    use std::i32::MAX;
     if v > MAX as _ {
         MAX
     } else {
@@ -60,7 +60,7 @@ pub(crate) fn clamp_usize_to_positive_i32(v: usize) -> i32 {
 
 #[inline]
 pub(crate) fn clamp_isize_to_positive_i32(v: isize) -> i32 {
-    use std::i32::{MAX};
+    use std::i32::MAX;
     if v < 0 {
         0
     } else if v > MAX as _ {
@@ -69,7 +69,6 @@ pub(crate) fn clamp_isize_to_positive_i32(v: isize) -> i32 {
         v as _
     }
 }
-
 
 pub fn exe_cmd_show() -> winapi::ctypes::c_int {
     return winapi::um::winuser::SW_SHOW;
@@ -96,8 +95,8 @@ impl<T> OkOrLastError<T> for Option<T> {
     }
 }
 
-impl<T> OkOrLastError<* mut T> for * mut T {
-    fn ok_or_last_error(self) -> Result<* mut T> {
+impl<T> OkOrLastError<*mut T> for *mut T {
+    fn ok_or_last_error(self) -> Result<*mut T> {
         use wio::error::last_error;
         if !self.is_null() {
             Ok(self)
@@ -107,8 +106,8 @@ impl<T> OkOrLastError<* mut T> for * mut T {
     }
 }
 
-impl<T> OkOrLastError<* const T> for * const T {
-    fn ok_or_last_error(self) -> Result<* const T> {
+impl<T> OkOrLastError<*const T> for *const T {
+    fn ok_or_last_error(self) -> Result<*const T> {
         use wio::error::last_error;
         if !self.is_null() {
             Ok(self)
@@ -117,8 +116,6 @@ impl<T> OkOrLastError<* const T> for * const T {
         }
     }
 }
-
-
 
 pub trait ManagedStrategy {
     fn clean_up<D: ManagedData>(&mut self, data: &mut D);
@@ -128,7 +125,6 @@ pub trait ManagedData {
     fn share(&self) -> Self;
     fn delete(&mut self);
 }
-
 
 pub struct ManagedEntity<D: ManagedData, T: ManagedStrategy> {
     data: D,
@@ -145,7 +141,6 @@ impl<D: ManagedData, T: ManagedStrategy> ManagedEntity<D, T> {
     }
 }
 
-
 impl<D: ManagedData, T: ManagedStrategy> Drop for ManagedEntity<D, T> {
     fn drop(&mut self) {
         self.strategy.clean_up(&mut self.data)
@@ -159,13 +154,12 @@ impl<'a, D: ManagedData + 'a> Clone for ManagedEntity<D, strategy::LocalRc<'a>> 
     }
 }
 
-
 pub mod strategy {
-    use std::rc::Rc;
     use std::marker::PhantomData;
-    use utils::ManagedStrategy;
+    use std::rc::Rc;
     use utils::ManagedData;
     use utils::ManagedEntity;
+    use utils::ManagedStrategy;
 
     pub struct Foreign;
 
@@ -177,7 +171,6 @@ pub mod strategy {
             }
         }
     }
-
 
     impl ManagedStrategy for Foreign {
         fn clean_up<D: ManagedData>(&mut self, _data: &mut D) {
@@ -234,7 +227,6 @@ pub mod strategy {
         }
     }
 }
-
 
 #[derive(Clone, Default)]
 pub struct CWideString(Vec<u16>);
