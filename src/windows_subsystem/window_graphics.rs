@@ -4,12 +4,12 @@ use winapi::um::winuser::PAINTSTRUCT;
 use wio::error::last_error;
 use wio::Result;
 
-use utils::strategy;
 use utils::booleanize;
+use utils::strategy;
 use utils::{ManagedData, ManagedEntity};
 
-use graphics_subsystem::device_context::DeviceContextInner;
 use graphics_subsystem::device_context::LocalDeviceContext;
+use graphics_subsystem::device_context::{DeviceContextInner, DeviceContextInnerKind};
 use windows_subsystem::window::AnyWindow;
 
 pub type AnyPaintDeviceContext<T> = ManagedEntity<PaintDeviceContextInner, T>;
@@ -58,6 +58,7 @@ impl ManagedData for PaintDeviceContextInner {
     }
     fn delete(&mut self) {
         use winapi::um::winuser::EndPaint;
+        self.device_context.reset_to_initial_state();
         unsafe {
             if let Some(paint_structure) = self.paint_structure.as_mut() {
                 let _retvalue = EndPaint(self.window, paint_structure);
@@ -83,7 +84,10 @@ impl<T: ManagedStrategy> AnyWindow<T> {
                 window: hwnd,
                 paint_structure: Some(paint_structure),
                 device_context: strategy::Local::attached_entity(
-                    DeviceContextInner::new_initial_dc_from_attached(hdc),
+                    DeviceContextInner::new_initial_dc_from_attached(
+                        hdc,
+                        DeviceContextInnerKind::Special,
+                    ),
                 ),
             }
         };
@@ -100,9 +104,9 @@ impl<T: ManagedStrategy> AnyWindow<T> {
     }
 
     pub fn invalidate(&self) -> Result<&Self> {
-        use winapi::um::winuser::InvalidateRect;
-        use winapi::shared::minwindef::FALSE;
         use std::ptr::null;
+        use winapi::shared::minwindef::FALSE;
+        use winapi::um::winuser::InvalidateRect;
         unsafe {
             if !booleanize(InvalidateRect(self.data_ref().raw_handle(), null(), FALSE)) {
                 return last_error();
@@ -112,9 +116,9 @@ impl<T: ManagedStrategy> AnyWindow<T> {
     }
 
     pub fn invalidate_and_erase(&self) -> Result<&Self> {
-        use winapi::um::winuser::InvalidateRect;
-        use winapi::shared::minwindef::TRUE;
         use std::ptr::null;
+        use winapi::shared::minwindef::TRUE;
+        use winapi::um::winuser::InvalidateRect;
         unsafe {
             if !booleanize(InvalidateRect(self.data_ref().raw_handle(), null(), TRUE)) {
                 return last_error();

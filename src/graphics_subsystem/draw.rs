@@ -112,7 +112,6 @@ impl<'a> ScopedDeviceContext<'a> {
         Ok(self)
     }
 
-
     pub fn bitblt(
         &mut self,
         src_dc: &ScopedDeviceContext,

@@ -1,9 +1,9 @@
 use winapi;
 use winapi::ctypes::c_int;
+use winapi::shared::basetsd::UINT_PTR;
 use winapi::shared::minwindef::{ATOM, HINSTANCE};
 use winapi::shared::minwindef::{DWORD, LPVOID, UINT, WORD};
 use winapi::shared::minwindef::{LPARAM, LRESULT, WPARAM};
-use winapi::shared::basetsd::UINT_PTR;
 use winapi::shared::windef::HBRUSH;
 use winapi::shared::windef::HCURSOR;
 use winapi::shared::windef::HICON;
@@ -623,7 +623,10 @@ pub enum MouseEventArgType {
 
 impl<'a> MouseEventArgs<'a> {
     pub fn kind(&self) -> Option<MouseEventArgType> {
-        use winapi::um::winuser::{WM_LBUTTONDOWN, WM_LBUTTONUP, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP};
+        use winapi::um::winuser::{
+            WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_RBUTTONDOWN,
+            WM_RBUTTONUP,
+        };
 
         match self.0.msg {
             WM_LBUTTONDOWN => Some(MouseEventArgType::LeftButtonDown),
@@ -632,17 +635,18 @@ impl<'a> MouseEventArgs<'a> {
             WM_RBUTTONUP => Some(MouseEventArgType::RightButtonUp),
             WM_MBUTTONDOWN => Some(MouseEventArgType::MiddleButtonDown),
             WM_MBUTTONUP => Some(MouseEventArgType::MiddleButtonUp),
-            _ => None
+            _ => None,
         }
     }
     pub fn cursor_coordinate(&self) -> Option<Point> {
-        use winapi::um::winuser::{WM_MOUSEACTIVATE, WM_MOUSELEAVE};
         use winapi::shared::windowsx::{GET_X_LPARAM, GET_Y_LPARAM};
+        use winapi::um::winuser::{WM_MOUSEACTIVATE, WM_MOUSELEAVE};
         match self.0.msg {
             WM_MOUSEACTIVATE | WM_MOUSELEAVE => None,
-            _ => {
-                Some(Point::new(GET_X_LPARAM(self.0.lparam) as _,GET_Y_LPARAM(self.0.lparam) as _))
-            }
+            _ => Some(Point::new(
+                GET_X_LPARAM(self.0.lparam) as _,
+                GET_Y_LPARAM(self.0.lparam) as _,
+            )),
         }
     }
 }
@@ -678,8 +682,8 @@ impl<'a> WindowProcRequest<'a> {
     }
 
     pub fn route_close<F>(&mut self, f: F) -> &mut Self
-        where
-            F: for<'r> FnOnce(&'r ForeignWindow) -> Result<()>,
+    where
+        F: for<'r> FnOnce(&'r ForeignWindow) -> Result<()>,
     {
         use winapi::um::winuser::WM_CLOSE;
         if self.args.msg == WM_CLOSE {
@@ -701,12 +705,10 @@ impl<'a> WindowProcRequest<'a> {
     }
 
     pub fn route_mouse<F>(&mut self, f: F) -> &mut Self
-        where
-            F: for<'r, 's> FnOnce(&'r ForeignWindow, MouseEventArgs<'s>) -> Result<bool>,
+    where
+        F: for<'r, 's> FnOnce(&'r ForeignWindow, MouseEventArgs<'s>) -> Result<bool>,
     {
-        use winapi::um::winuser::{
-            WM_MOUSEFIRST, WM_MOUSELAST,
-        };
+        use winapi::um::winuser::{WM_MOUSEFIRST, WM_MOUSELAST};
         if self.args.msg >= WM_MOUSEFIRST && self.args.msg <= WM_MOUSELAST {
             if let Some(response) = self.response.take() {
                 if let Some(window) = AnyWindow::new_from_attached(self.hwnd) {
@@ -744,7 +746,7 @@ macro_rules! window_proc {
                         msg,
                         wparam,
                         lparam,
-                        },
+                    },
                     response: Some(&mut response),
                 };
 
@@ -769,23 +771,34 @@ use std::time::Duration;
 type TimerProcInner = unsafe extern "system" fn(_: HWND, _: UINT, _: UINT_PTR, _: DWORD);
 
 impl<T: ManagedStrategy> AnyWindow<T> {
-    pub fn set_timer_with_id(&self, id: NonZeroUsize, interval: Duration, timer_proc: TimerProcInner) -> Result<&Self> {
-        use winapi::um::winuser::USER_TIMER_MAXIMUM;
+    pub fn set_timer_with_id(
+        &self,
+        id: NonZeroUsize,
+        interval: Duration,
+        timer_proc: TimerProcInner,
+    ) -> Result<&Self> {
         use winapi::um::winuser::SetTimer;
+        use winapi::um::winuser::USER_TIMER_MAXIMUM;
         unsafe {
-            let mut interval = interval.as_secs().saturating_mul(60).saturating_add(interval.subsec_millis() as _);
-            if interval > USER_TIMER_MAXIMUM as _{
+            let mut interval = interval
+                .as_secs()
+                .saturating_mul(60)
+                .saturating_add(interval.subsec_millis() as _);
+            if interval > USER_TIMER_MAXIMUM as _ {
                 interval = USER_TIMER_MAXIMUM as _;
             }
-            if 0 == SetTimer(self.data_ref().raw_handle(),
-                             id.get(), interval as _, Some(timer_proc)) {
+            if 0 == SetTimer(
+                self.data_ref().raw_handle(),
+                id.get(),
+                interval as _,
+                Some(timer_proc),
+            ) {
                 return last_error();
             }
         }
         Ok(self)
     }
 }
-
 
 pub struct TimerProcRequest {
     pub hwnd: HWND,
@@ -807,9 +820,7 @@ macro_rules! timer_proc {
             arg4: $crate::full_windows_api::shared::minwindef::DWORD,
         ) {
             {
-                let request = $crate::windows_subsystem::window::TimerProcRequest {
-                    hwnd
-                };
+                let request = $crate::windows_subsystem::window::TimerProcRequest { hwnd };
 
                 ($nest_proc)(request);
             }

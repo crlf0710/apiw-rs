@@ -53,7 +53,6 @@ impl Debug for Point {
     }
 }
 
-
 #[derive(Copy, Clone, Into)]
 pub struct Size(pub(crate) winapi::shared::windef::SIZE);
 
