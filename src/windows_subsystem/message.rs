@@ -1,4 +1,3 @@
-use super::super::utils::booleanize;
 use std::mem::uninitialized;
 use std::ptr::null_mut;
 use winapi::shared::minwindef::LRESULT;
@@ -8,6 +7,8 @@ use winapi::um::winnt::LONG;
 use winapi::um::winuser::MSG;
 use wio::error::last_error;
 use wio::Result;
+
+use shared::booleanize;
 
 /// ECMA-234 Clause 6 CallWindowProc
 fn call_window_proc() {
@@ -188,3 +189,5 @@ impl ForeignMessageLoop {
         unsafe { GetMessageTime().into() }
     }
 }
+
+

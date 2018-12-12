@@ -2,11 +2,11 @@ use winapi::shared::windef::HDC;
 use wio::error::last_error;
 use wio::Result;
 
-use utils::booleanize;
-use utils::strategy;
-use utils::ManagedData;
-use utils::ManagedEntity;
-use utils::ManagedStrategy;
+use shared::booleanize;
+use shared::strategy;
+use shared::ManagedData;
+use shared::ManagedEntity;
+use shared::ManagedStrategy;
 
 use graphics_subsystem::object::{Bitmap, Pen};
 use winapi::shared::windef::HBITMAP;

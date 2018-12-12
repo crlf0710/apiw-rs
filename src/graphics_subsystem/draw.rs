@@ -6,7 +6,7 @@ use graphics_subsystem::Point;
 use graphics_subsystem::RGBColor;
 use graphics_subsystem::Size;
 use graphics_subsystem::TenaryROP;
-use utils::booleanize;
+use shared::booleanize;
 
 pub trait Draw {
     fn draw<'a>(self, dc: &mut ScopedDeviceContext<'a>) -> Result<()>;

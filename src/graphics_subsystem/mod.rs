@@ -1,10 +1,10 @@
 use winapi;
 use winapi::shared::minwindef::DWORD;
 
-use utils::clamp_i32_to_positive_i32;
-use utils::clamp_isize_to_i32;
-use utils::clamp_usize_to_positive_i32;
-use utils::clamp_usize_to_positive_isize;
+use shared::clamp_i32_to_positive_i32;
+use shared::clamp_isize_to_i32;
+use shared::clamp_usize_to_positive_i32;
+use shared::clamp_usize_to_positive_isize;
 
 pub mod device_context;
 pub mod draw;

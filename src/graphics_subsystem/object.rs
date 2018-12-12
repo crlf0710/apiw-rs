@@ -13,13 +13,13 @@ use wio::Result;
 
 use graphics_subsystem::device_context::ScopedDeviceContext;
 use graphics_subsystem::RGBColor;
-use utils;
-use utils::booleanize;
-use utils::clamp_usize_to_positive_i32;
-use utils::strategy;
-use utils::ManagedData;
-use utils::ManagedEntity;
-use utils::ManagedStrategy;
+use shared;
+use shared::booleanize;
+use shared::clamp_usize_to_positive_i32;
+use shared::strategy;
+use shared::ManagedData;
+use shared::ManagedEntity;
+use shared::ManagedStrategy;
 
 #[derive(Clone)]
 pub struct PenInner(HPEN);
@@ -167,7 +167,7 @@ impl Bitmap {
         use windows_subsystem::window::ResourceIDOrIDString;
         let resource = ResourceIDOrIDString::ID(id);
         let bitmap = unsafe {
-            let h = LoadBitmapW(utils::exe_instance(), resource.as_ptr_or_int_ptr());
+            let h = LoadBitmapW(shared::exe_instance(), resource.as_ptr_or_int_ptr());
             if h.is_null() {
                 return last_error();
             }

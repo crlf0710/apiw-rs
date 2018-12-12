@@ -3,7 +3,6 @@ use winapi;
 use winapi::shared::minwindef::BOOL;
 use winapi::shared::minwindef::HINSTANCE;
 use wio::wide::ToWide;
-use wio::Result;
 
 pub(crate) fn booleanize(v: BOOL) -> bool {
     v != 0
@@ -80,6 +79,28 @@ pub fn exe_instance() -> HINSTANCE {
     unsafe { winapi::um::libloaderapi::GetModuleHandleW(null_mut()) }
 }
 
+pub use wio::error::last_error;
+pub use wio::Result;
+
+#[derive(Debug)]
+pub struct CommDlgErr(pub(crate) u32);
+
+pub type CommDlgResult<T> = ::std::result::Result<T, CommDlgErr>;
+
+pub fn maybe_last_error<T, D: FnOnce() -> T>(f: D) -> Result<T> {
+    let err = last_error();
+    let code = if let Err(ref err) = err {
+        err.code()
+    } else {
+        0
+    };
+    if code == 0 {
+        Ok(f())
+    } else {
+        err
+    }
+}
+
 pub trait OkOrLastError<T> {
     fn ok_or_last_error(self) -> Result<T>;
 }
@@ -147,6 +168,20 @@ impl<D: ManagedData, T: ManagedStrategy> Drop for ManagedEntity<D, T> {
     }
 }
 
+impl<'a, D: ManagedData + 'a> Clone for ManagedEntity<D, strategy::Foreign> {
+    fn clone(&self) -> Self {
+        let foreign = self.strategy.clone();
+        foreign.cloned_entity(&self.data)
+    }
+}
+
+impl<'a, D: ManagedData + 'a> Clone for ManagedEntity<D, strategy::Local<'a>> {
+    fn clone(&self) -> Self {
+        let local = self.strategy.clone();
+        local.cloned_entity(&self.data)
+    }
+}
+
 impl<'a, D: ManagedData + 'a> Clone for ManagedEntity<D, strategy::LocalRc<'a>> {
     fn clone(&self) -> Self {
         let rc = self.strategy.clone();
@@ -157,10 +192,11 @@ impl<'a, D: ManagedData + 'a> Clone for ManagedEntity<D, strategy::LocalRc<'a>> 
 pub mod strategy {
     use std::marker::PhantomData;
     use std::rc::Rc;
-    use utils::ManagedData;
-    use utils::ManagedEntity;
-    use utils::ManagedStrategy;
+    use shared::ManagedData;
+    use shared::ManagedEntity;
+    use shared::ManagedStrategy;
 
+    #[derive(Clone)]
     pub struct Foreign;
 
     impl Foreign {
@@ -168,6 +204,13 @@ pub mod strategy {
             ManagedEntity {
                 data,
                 strategy: Foreign,
+            }
+        }
+
+        pub fn cloned_entity<D: ManagedData>(self, data: &D) -> ManagedEntity<D, Self> {
+            ManagedEntity {
+                data: data.share(),
+                strategy: self,
             }
         }
     }
@@ -178,6 +221,7 @@ pub mod strategy {
         }
     }
 
+    #[derive(Clone)]
     pub struct Local<'a>(PhantomData<&'a ()>);
 
     impl<'a> Local<'a> {
@@ -185,6 +229,13 @@ pub mod strategy {
             ManagedEntity {
                 data,
                 strategy: Local(PhantomData),
+            }
+        }
+
+        pub fn cloned_entity<D: ManagedData + 'a>(self, data: &D) -> ManagedEntity<D, Self> {
+            ManagedEntity {
+                data: data.share(),
+                strategy: self,
             }
         }
     }
@@ -262,3 +313,42 @@ impl<T: ToWide> From<T> for CWideString {
         CWideString(v.to_wide_null())
     }
 }
+
+pub struct CWideStringSeq(Vec<u16>);
+
+impl CWideStringSeq {
+    pub(crate) fn from_raw_unchecked(data: Vec<u16>) -> Self {
+        CWideStringSeq(data)
+    }
+
+    pub fn iter_wide_null(&self) -> CWideStringSeqIter {
+        CWideStringSeqIter {
+            seq: self,
+            pos: 0
+        }
+    }
+}
+
+pub struct CWideStringSeqIter<'a> {
+    seq: &'a CWideStringSeq,
+    pos: usize
+}
+
+impl<'a> Iterator for CWideStringSeqIter<'a> {
+    type Item = &'a [u16];
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.pos < self.seq.0.len() {
+            let next_zero_pos = ((self.seq.0)[self.pos..]).iter().position(|&c| c == 0)
+                .expect("Data is inconsistent");
+            let val = Some(&self.seq.0[(self.pos)..(self.pos + next_zero_pos + 1)]);
+            self.pos = self.pos + next_zero_pos + 1;
+            val
+        } else {
+            None
+        }
+    }
+}
+
+
+
