@@ -50,7 +50,7 @@ pub struct MessageSimpleFilter {
 }
 
 impl MessageSimpleFilter {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         MessageSimpleFilter {
             hwnd: null_mut(),
             min: 0,
@@ -92,7 +92,7 @@ impl ForeignMessageLoop {
 
     /// ECMA-234 Clause 8 GetMessage
     pub fn poll_wait(&mut self) -> Result<QuitOrNormalMsg> {
-        let FILTER: MessageSimpleFilter = MessageSimpleFilter::new();
+        const FILTER: MessageSimpleFilter = MessageSimpleFilter::new();
         self.poll_wait_with_filter(&FILTER)
     }
 

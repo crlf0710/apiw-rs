@@ -20,6 +20,8 @@ pub mod graphics_subsystem;
 
 pub mod application_support_functions;
 
+pub mod extensions;
+
 pub mod full_windows_api {
     #[doc(inline)]
     pub use winapi::*;
