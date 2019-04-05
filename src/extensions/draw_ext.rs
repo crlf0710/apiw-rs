@@ -8,10 +8,10 @@ use wio::Result;
 pub struct Transform(winapi::um::wingdi::XFORM);
 
 impl Transform {
-    const fn new() -> Self {
+    pub const fn new() -> Self {
         Self::new_with_values(&[1.0, 0.0, 0.0, 1.0, 0.0, 0.0])
     }
-    const fn new_with_values(values: &[FLOAT; 6]) -> Self {
+    pub const fn new_with_values(values: &[FLOAT; 6]) -> Self {
         use winapi::um::wingdi::XFORM;
         Transform(XFORM {
             eM11: values[0],
@@ -28,8 +28,8 @@ impl Transform {
 pub struct GraphicsMode(c_int);
 
 impl GraphicsMode {
-    const COMPATIBLE: GraphicsMode = GraphicsMode(winapi::um::wingdi::GM_COMPATIBLE as c_int);
-    const ADVANCED: GraphicsMode = GraphicsMode(winapi::um::wingdi::GM_ADVANCED as c_int);
+    pub const COMPATIBLE: GraphicsMode = GraphicsMode(winapi::um::wingdi::GM_COMPATIBLE as c_int);
+    pub const ADVANCED: GraphicsMode = GraphicsMode(winapi::um::wingdi::GM_ADVANCED as c_int);
 }
 
 impl<'a> ScopedDeviceContext<'a> {
