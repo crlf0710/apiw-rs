@@ -1,6 +1,6 @@
 #![cfg(debug_assertions)]
-use windows_subsystem::window::AnyWindow;
-use shared::ManagedStrategy;
+use crate::windows_subsystem::window::AnyWindow;
+use crate::shared::ManagedStrategy;
 use winapi::shared::windef::HWND;
 
 impl<T: ManagedStrategy> AnyWindow<T> {

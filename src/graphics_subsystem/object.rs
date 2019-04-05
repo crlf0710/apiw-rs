@@ -11,15 +11,15 @@ use winapi::um::wingdi::{
 use wio::error::last_error;
 use wio::Result;
 
-use graphics_subsystem::device_context::ScopedDeviceContext;
-use graphics_subsystem::RGBColor;
-use shared;
-use shared::booleanize;
-use shared::clamp_usize_to_positive_i32;
-use shared::strategy;
-use shared::ManagedData;
-use shared::ManagedEntity;
-use shared::ManagedStrategy;
+use crate::graphics_subsystem::device_context::ScopedDeviceContext;
+use crate::graphics_subsystem::RGBColor;
+use crate::shared;
+use crate::shared::booleanize;
+use crate::shared::clamp_usize_to_positive_i32;
+use crate::shared::strategy;
+use crate::shared::ManagedData;
+use crate::shared::ManagedEntity;
+use crate::shared::ManagedStrategy;
 
 #[derive(Clone)]
 pub struct PenInner(HPEN);
@@ -164,7 +164,7 @@ pub type Bitmap = ManagedEntity<BitmapInner, strategy::LocalRc<'static>>;
 impl Bitmap {
     pub fn load_from_resource_id(id: WORD) -> Result<Bitmap> {
         use winapi::um::winuser::LoadBitmapW;
-        use windows_subsystem::window::ResourceIDOrIDString;
+        use crate::windows_subsystem::window::ResourceIDOrIDString;
         let resource = ResourceIDOrIDString::ID(id);
         let bitmap = unsafe {
             let h = LoadBitmapW(shared::exe_instance(), resource.as_ptr_or_int_ptr());

@@ -8,7 +8,7 @@ use winapi::um::winuser::MSG;
 use wio::error::last_error;
 use wio::Result;
 
-use shared::booleanize;
+use crate::shared::booleanize;
 
 /// ECMA-234 Clause 6 CallWindowProc
 fn call_window_proc() {

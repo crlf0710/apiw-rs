@@ -6,13 +6,13 @@ use wio::Result;
 
 use std::path::PathBuf;
 
-use shared::CWideString;
-use shared::CWideStringSeq;
-use shared::ManagedStrategy;
-use shared::booleanize;
-use shared::CommDlgResult;
-use windows_subsystem::window::WindowInner;
-use windows_subsystem::window::AnyWindow;
+use crate::shared::CWideString;
+use crate::shared::CWideStringSeq;
+use crate::shared::ManagedStrategy;
+use crate::shared::booleanize;
+use crate::shared::CommDlgResult;
+use crate::windows_subsystem::window::WindowInner;
+use crate::windows_subsystem::window::AnyWindow;
 
 pub struct MessageBoxBuilder<'a> {
     parent: Option<&'a WindowInner>,
@@ -156,7 +156,7 @@ impl<'b> OpenFileDialogBuilder<'b> {
         use winapi::um::commdlg::OPENFILENAMEW;
         use winapi::shared::minwindef::MAX_PATH;
         use winapi::um::commdlg::CommDlgExtendedError;
-        use shared::CommDlgErr;
+        use crate::shared::CommDlgErr;
         use wio::wide::FromWide;
         use std::mem::zeroed;
         use std::mem::size_of_val;
@@ -239,7 +239,7 @@ impl<'b> SaveFileDialogBuilder<'b> {
         use winapi::um::commdlg::OPENFILENAMEW;
         use winapi::shared::minwindef::MAX_PATH;
         use winapi::um::commdlg::CommDlgExtendedError;
-        use shared::CommDlgErr;
+        use crate::shared::CommDlgErr;
         use wio::wide::FromWide;
         use std::mem::zeroed;
         use std::mem::size_of_val;

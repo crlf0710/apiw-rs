@@ -1,12 +1,12 @@
 use wio::error::last_error;
 use wio::Result;
 
-use graphics_subsystem::device_context::ScopedDeviceContext;
-use graphics_subsystem::Point;
-use graphics_subsystem::RGBColor;
-use graphics_subsystem::Size;
-use graphics_subsystem::TenaryROP;
-use shared::booleanize;
+use crate::graphics_subsystem::device_context::ScopedDeviceContext;
+use crate::graphics_subsystem::Point;
+use crate::graphics_subsystem::RGBColor;
+use crate::graphics_subsystem::Size;
+use crate::graphics_subsystem::TenaryROP;
+use crate::shared::booleanize;
 
 pub trait Draw {
     fn draw<'a>(self, dc: &mut ScopedDeviceContext<'a>) -> Result<()>;

@@ -10,21 +10,21 @@ use winapi::shared::windef::HICON;
 use winapi::shared::windef::HMENU;
 use winapi::shared::windef::HWND;
 use winapi::um::winuser::WNDPROC;
-use {last_error, maybe_last_error, Result};
+use crate::{last_error, maybe_last_error, Result};
 
-use shared::booleanize;
-use shared::exe_instance;
-use shared::revert_booleanize;
-use shared::CWideString;
-use shared::ManagedStrategy;
+use crate::shared::booleanize;
+use crate::shared::exe_instance;
+use crate::shared::revert_booleanize;
+use crate::shared::CWideString;
+use crate::shared::ManagedStrategy;
 //use utils::{Handle, Managed, Temporary};
 //use utils::System;
-use graphics_subsystem::Rect;
-use graphics_subsystem::Size;
-use shared::strategy;
-use shared::ManagedData;
-use shared::ManagedEntity;
-use shared::OkOrLastError;
+use crate::graphics_subsystem::Rect;
+use crate::graphics_subsystem::Size;
+use crate::shared::strategy;
+use crate::shared::ManagedData;
+use crate::shared::ManagedEntity;
+use crate::shared::OkOrLastError;
 
 pub type AnyWindowClass<T> = ManagedEntity<WindowClassInner, T>;
 pub type ForeignWindowClass = AnyWindowClass<strategy::Foreign>;
@@ -222,7 +222,7 @@ impl WindowClassBuilder {
     }
 
     pub fn icon_from_resource_id(mut self, id: WORD) -> Self {
-        use shared;
+        use crate::shared;
         use winapi::um::winuser::LoadIconW;
         let instance = shared::exe_instance();
 
@@ -624,7 +624,7 @@ pub struct WindowProcRequestArgs {
 
 pub struct CreateEventArgs<'a>(pub &'a WindowProcRequestArgs);
 
-use graphics_subsystem::Point;
+use crate::graphics_subsystem::Point;
 
 pub struct MouseEventArgs<'a>(pub &'a WindowProcRequestArgs);
 

@@ -2,13 +2,13 @@ use winapi::shared::windef::HDC;
 use wio::error::last_error;
 use wio::Result;
 
-use shared::booleanize;
-use shared::strategy;
-use shared::ManagedData;
-use shared::ManagedEntity;
-use shared::ManagedStrategy;
+use crate::shared::booleanize;
+use crate::shared::strategy;
+use crate::shared::ManagedData;
+use crate::shared::ManagedEntity;
+use crate::shared::ManagedStrategy;
 
-use graphics_subsystem::object::{Bitmap, Pen};
+use crate::graphics_subsystem::object::{Bitmap, Pen};
 use winapi::shared::windef::HBITMAP;
 use winapi::shared::windef::HPEN;
 

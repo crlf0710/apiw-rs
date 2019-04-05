@@ -2,12 +2,12 @@ use winapi::shared::windef::HMENU;
 use winapi::shared::minwindef::WORD;
 use winapi::shared::minwindef::UINT;
 
-use shared::strategy;
-use shared::{ManagedEntity, ManagedData, ManagedStrategy};
-use shared::booleanize;
-use windows_subsystem::window::AnyWindow;
-use shared::{Result, last_error};
-use shared::OkOrLastError;
+use crate::shared::strategy;
+use crate::shared::{ManagedEntity, ManagedData, ManagedStrategy};
+use crate::shared::booleanize;
+use crate::windows_subsystem::window::AnyWindow;
+use crate::shared::{Result, last_error};
+use crate::shared::OkOrLastError;
 
 #[derive(Clone)]
 pub struct MenuInner(HMENU);

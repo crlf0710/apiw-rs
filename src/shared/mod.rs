@@ -192,9 +192,9 @@ impl<'a, D: ManagedData + 'a> Clone for ManagedEntity<D, strategy::LocalRc<'a>> 
 pub mod strategy {
     use std::marker::PhantomData;
     use std::rc::Rc;
-    use shared::ManagedData;
-    use shared::ManagedEntity;
-    use shared::ManagedStrategy;
+    use crate::shared::ManagedData;
+    use crate::shared::ManagedEntity;
+    use crate::shared::ManagedStrategy;
 
     #[derive(Clone)]
     pub struct Foreign;

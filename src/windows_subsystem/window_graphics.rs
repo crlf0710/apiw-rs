@@ -4,13 +4,13 @@ use winapi::um::winuser::PAINTSTRUCT;
 use wio::error::last_error;
 use wio::Result;
 
-use shared::booleanize;
-use shared::strategy;
-use shared::{ManagedData, ManagedEntity};
+use crate::shared::booleanize;
+use crate::shared::strategy;
+use crate::shared::{ManagedData, ManagedEntity};
 
-use graphics_subsystem::device_context::LocalDeviceContext;
-use graphics_subsystem::device_context::{DeviceContextInner, DeviceContextInnerKind};
-use windows_subsystem::window::AnyWindow;
+use crate::graphics_subsystem::device_context::LocalDeviceContext;
+use crate::graphics_subsystem::device_context::{DeviceContextInner, DeviceContextInnerKind};
+use crate::windows_subsystem::window::AnyWindow;
 
 pub type AnyPaintDeviceContext<T> = ManagedEntity<PaintDeviceContextInner, T>;
 
@@ -30,7 +30,7 @@ impl PaintDeviceContextInner {
 
 use std::ops::Deref;
 use std::ops::DerefMut;
-use shared::ManagedStrategy;
+use crate::shared::ManagedStrategy;
 
 impl<T: ManagedStrategy> Deref for AnyPaintDeviceContext<T> {
     type Target = LocalDeviceContext;
