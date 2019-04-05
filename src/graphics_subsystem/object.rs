@@ -1,7 +1,7 @@
+use derive_more::Into;
+use log::warn;
 use std::cell::Cell;
 use std::rc::Rc;
-use log::warn;
-use derive_more::Into;
 
 use winapi::ctypes::c_int;
 use winapi::shared::minwindef::HRGN;
@@ -10,7 +10,7 @@ use winapi::shared::windef::{HBITMAP, HBRUSH, HFONT, HPALETTE, HPEN};
 use winapi::um::wingdi::{
     PS_DASH, PS_DASHDOT, PS_DASHDOTDOT, PS_DOT, PS_INSIDEFRAME, PS_NULL, PS_SOLID,
 };
-use wio::error::last_error;
+use wio::error::Error;
 use wio::Result;
 
 use crate::graphics_subsystem::device_context::ScopedDeviceContext;
@@ -42,7 +42,7 @@ impl ManagedData for PenInner {
         unsafe {
             let succeeded = booleanize(DeleteObject(self.raw_handle() as _));
             if !succeeded {
-                warn!(target: "apiw", "Failed to cleanup {}, last error: {:?}", "Pen", last_error::<()>());
+                warn!(target: "apiw", "Failed to cleanup {}, last error: {:?}", "Pen", Error::last::<()>());
             }
         }
     }
@@ -102,7 +102,7 @@ impl PenBuilder {
                 self.color.into(),
             );
             if h.is_null() {
-                return last_error();
+                return Error::last();
             }
             PenInner(h)
         };
@@ -119,7 +119,7 @@ impl<'a> ScopedDeviceContext<'a> {
                 pen.data_ref().raw_handle() as _,
             );
             if h.is_null() {
-                return last_error();
+                return Error::last();
             }
             self.data_mut().track_old_pen(h as _);
             self.data_mut().track_active_pen(pen);
@@ -155,7 +155,7 @@ impl ManagedData for BitmapInner {
         unsafe {
             let succeeded = booleanize(DeleteObject(self.raw_handle() as _));
             if !succeeded {
-                warn!(target: "apiw", "Failed to cleanup {}, last error: {:?}", "Bitmap", last_error::<()>());
+                warn!(target: "apiw", "Failed to cleanup {}, last error: {:?}", "Bitmap", Error::last::<()>());
             }
         }
     }
@@ -165,13 +165,13 @@ pub type Bitmap = ManagedEntity<BitmapInner, strategy::LocalRc<'static>>;
 
 impl Bitmap {
     pub fn load_from_resource_id(id: WORD) -> Result<Bitmap> {
-        use winapi::um::winuser::LoadBitmapW;
         use crate::windows_subsystem::window::ResourceIDOrIDString;
+        use winapi::um::winuser::LoadBitmapW;
         let resource = ResourceIDOrIDString::ID(id);
         let bitmap = unsafe {
             let h = LoadBitmapW(shared::exe_instance(), resource.as_ptr_or_int_ptr());
             if h.is_null() {
-                return last_error();
+                return Error::last();
             }
             BitmapInner(h, Rc::new(Cell::new(false)))
         };
@@ -188,7 +188,7 @@ impl<'a> ScopedDeviceContext<'a> {
                 bitmap.data_ref().raw_handle() as _,
             );
             if h.is_null() {
-                return last_error();
+                return Error::last();
             }
             self.data_mut().track_old_bitmap(h as _);
             self.data_mut().track_active_bitmap(bitmap);

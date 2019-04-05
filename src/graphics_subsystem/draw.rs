@@ -1,4 +1,4 @@
-use wio::error::last_error;
+use wio::error::Error;
 use wio::Result;
 
 use crate::graphics_subsystem::device_context::ScopedDeviceContext;
@@ -41,7 +41,7 @@ impl<'a> ScopedDeviceContext<'a> {
                 pos.0.y,
                 null_mut(),
             )) {
-                return last_error();
+                return Error::last();
             }
         }
         Ok(self)
@@ -56,7 +56,7 @@ impl<'a> ScopedDeviceContext<'a> {
                 pos.0.y,
                 &mut pos.0,
             )) {
-                return last_error();
+                return Error::last();
             }
         }
         Ok(self)
@@ -66,7 +66,7 @@ impl<'a> ScopedDeviceContext<'a> {
         use winapi::um::wingdi::LineTo;
         unsafe {
             if !booleanize(LineTo(self.data_ref().raw_handle(), pos.0.x, pos.0.y)) {
-                return last_error();
+                return Error::last();
             }
         }
         Ok(self)
@@ -92,7 +92,7 @@ impl<'a> ScopedDeviceContext<'a> {
         unsafe {
             let r = SetBkColor(self.data_ref().raw_handle(), color.into());
             if r == CLR_INVALID {
-                return last_error();
+                return Error::last();
             }
         };
         Ok(self)
@@ -104,7 +104,7 @@ impl<'a> ScopedDeviceContext<'a> {
         let old_color = unsafe {
             let r = SetBkColor(self.data_ref().raw_handle(), (*color).into());
             if r == CLR_INVALID {
-                return last_error();
+                return Error::last();
             }
             RGBColor(r)
         };
@@ -133,7 +133,7 @@ impl<'a> ScopedDeviceContext<'a> {
                 src_pos.0.y,
                 rop.into(),
             )) {
-                return last_error();
+                return Error::last();
             }
         }
         Ok(self)
@@ -163,7 +163,7 @@ impl<'a> ScopedDeviceContext<'a> {
                 src_size.0.cy,
                 key.into(),
             )) {
-                return last_error();
+                return Error::last();
             }
         }
         Ok(self)

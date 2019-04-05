@@ -1,12 +1,12 @@
+use derive_more::From;
 use std::mem::uninitialized;
 use std::ptr::null_mut;
-use derive_more::From;
 use winapi::shared::minwindef::LRESULT;
 use winapi::shared::minwindef::{BOOL, DWORD, UINT};
 use winapi::shared::windef::HWND;
 use winapi::um::winnt::LONG;
 use winapi::um::winuser::MSG;
-use wio::error::last_error;
+use wio::error::Error;
 use wio::Result;
 
 use crate::shared::booleanize;
@@ -107,7 +107,7 @@ impl ForeignMessageLoop {
             let mut msg: MSG = uninitialized();
             let ret: BOOL = GetMessageW(&mut msg, filter.hwnd, filter.min, filter.max);
             if ret == -1 {
-                last_error()
+                Error::last()
             } else if ret == 0 {
                 Ok(QuitOrNormalMsg::QuitMsg)
             } else {
@@ -173,7 +173,7 @@ impl ForeignMessageLoop {
             if booleanize(WaitMessage()) {
                 Ok(())
             } else {
-                last_error()
+                Error::last()
             }
         }
     }
@@ -190,5 +190,3 @@ impl ForeignMessageLoop {
         unsafe { GetMessageTime().into() }
     }
 }
-
-

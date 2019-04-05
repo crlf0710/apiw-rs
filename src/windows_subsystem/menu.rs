@@ -1,14 +1,14 @@
-use winapi::shared::windef::HMENU;
-use winapi::shared::minwindef::WORD;
-use winapi::shared::minwindef::UINT;
 use log::warn;
+use winapi::shared::minwindef::UINT;
+use winapi::shared::minwindef::WORD;
+use winapi::shared::windef::HMENU;
 
-use crate::shared::strategy;
-use crate::shared::{ManagedEntity, ManagedData, ManagedStrategy};
 use crate::shared::booleanize;
-use crate::windows_subsystem::window::AnyWindow;
-use crate::shared::{Result, last_error};
+use crate::shared::strategy;
 use crate::shared::OkOrLastError;
+use crate::shared::{Error, Result};
+use crate::shared::{ManagedData, ManagedEntity, ManagedStrategy};
+use crate::windows_subsystem::window::AnyWindow;
 
 #[derive(Clone)]
 pub struct MenuInner(HMENU);
@@ -28,12 +28,11 @@ impl ManagedData for MenuInner {
         unsafe {
             let succeeded = booleanize(DestroyMenu(self.raw_handle()));
             if !succeeded {
-                warn!(target: "apiw", "Failed to cleanup {}, last error: {:?}", "AnyMenu", last_error::<()>());
+                warn!(target: "apiw", "Failed to cleanup {}, last error: {:?}", "AnyMenu", Error::last::<()>());
             }
         }
     }
 }
-
 
 pub type AnyMenu<T> = ManagedEntity<MenuInner, T>;
 pub type ForeignMenu = AnyMenu<strategy::Foreign>;
@@ -48,7 +47,7 @@ impl<T: ManagedStrategy> AnyWindow<T> {
         Ok(has_window_menu)
     }
 
-    pub fn menu(&self) -> Result<Option<ForeignMenu>>  {
+    pub fn menu(&self) -> Result<Option<ForeignMenu>> {
         use winapi::um::winuser::GetMenu;
         let menu = unsafe {
             let h = GetMenu(self.data_ref().raw_handle()).ok_or_last_error()?;
@@ -83,11 +82,11 @@ pub struct MenuItem<'a> {
 
 impl<'a> MenuItem<'a> {
     pub fn set_checked(&mut self, checked: bool) -> Result<&mut Self> {
+        use winapi::um::winuser::CheckMenuItem;
         use winapi::um::winuser::MF_BYCOMMAND;
         use winapi::um::winuser::MF_BYPOSITION;
         use winapi::um::winuser::MF_CHECKED;
         use winapi::um::winuser::MF_UNCHECKED;
-        use winapi::um::winuser::CheckMenuItem;
         unsafe {
             let h = self.menu.0;
             let mut f = 0;
@@ -103,18 +102,18 @@ impl<'a> MenuItem<'a> {
             }
             let r = CheckMenuItem(h, self.id_or_pos as _, f);
             if r == -1i32 as _ {
-                return last_error();
+                return Error::last();
             }
         }
         Ok(self)
     }
 
     pub fn set_enabled(&mut self, enabled: bool) -> Result<&mut Self> {
+        use winapi::um::winuser::EnableMenuItem;
         use winapi::um::winuser::MF_BYCOMMAND;
         use winapi::um::winuser::MF_BYPOSITION;
         use winapi::um::winuser::MF_ENABLED;
         use winapi::um::winuser::MF_GRAYED;
-        use winapi::um::winuser::EnableMenuItem;
         unsafe {
             let h = self.menu.0;
             let mut f = 0;
@@ -130,18 +129,18 @@ impl<'a> MenuItem<'a> {
             }
             let r = EnableMenuItem(h, self.id_or_pos as _, f);
             if r == -1i32 as _ {
-                return last_error();
+                return Error::last();
             }
         }
         Ok(self)
     }
 
     pub fn set_enabled_but_never_grayed(&mut self, enabled: bool) -> Result<&mut Self> {
+        use winapi::um::winuser::EnableMenuItem;
         use winapi::um::winuser::MF_BYCOMMAND;
         use winapi::um::winuser::MF_BYPOSITION;
-        use winapi::um::winuser::MF_ENABLED;
         use winapi::um::winuser::MF_DISABLED;
-        use winapi::um::winuser::EnableMenuItem;
+        use winapi::um::winuser::MF_ENABLED;
         unsafe {
             let h = self.menu.0;
             let mut f = 0;
@@ -157,7 +156,7 @@ impl<'a> MenuItem<'a> {
             }
             let r = EnableMenuItem(h, self.id_or_pos as _, f);
             if r == -1i32 as _ {
-                return last_error();
+                return Error::last();
             }
         }
         Ok(self)

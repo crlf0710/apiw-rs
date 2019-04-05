@@ -1,7 +1,7 @@
-use winapi::shared::windef::HDC;
-use wio::error::last_error;
-use wio::Result;
 use log::warn;
+use winapi::shared::windef::HDC;
+use wio::error::Error;
+use wio::Result;
 
 use crate::shared::booleanize;
 use crate::shared::strategy;
@@ -76,7 +76,7 @@ impl DeviceContextInner {
                 let h = SelectObject(self.raw_handle(), old_pen as _);
                 if h.is_null() {
                     warn!(target: "apiw", "Failed to restore {} state for {}, last error: {:?}",
-                          "pen", "DeviceContext", last_error::<()>());
+                          "pen", "DeviceContext", Error::last::<()>());
                 }
             }
         }
@@ -87,7 +87,7 @@ impl DeviceContextInner {
                 let h = SelectObject(self.raw_handle(), old_bitmap as _);
                 if h.is_null() {
                     warn!(target: "apiw", "Failed to restore {} state for {}, last error: {:?}",
-                          "bitmap", "DeviceContext", last_error::<()>());
+                          "bitmap", "DeviceContext", Error::last::<()>());
                 }
             }
         }
@@ -110,7 +110,7 @@ impl ManagedData for DeviceContextInner {
             DeviceContextInnerKind::Normal => unsafe {
                 let succeeded = booleanize(DeleteDC(self.raw_handle()));
                 if !succeeded {
-                    warn!(target: "apiw", "Failed to cleanup {}, last error: {:?}", "LocalDeviceContext", last_error::<()>());
+                    warn!(target: "apiw", "Failed to cleanup {}, last error: {:?}", "LocalDeviceContext", Error::last::<()>());
                 }
             },
             DeviceContextInnerKind::Special => {
@@ -132,7 +132,7 @@ impl LocalDeviceContext {
         let memdc = unsafe {
             let h = CreateCompatibleDC(dc.data_ref().raw_handle());
             if h.is_null() {
-                return last_error();
+                return Error::last();
             }
             h
         };
@@ -148,7 +148,7 @@ impl LocalDeviceContext {
         let memdc = unsafe {
             let h = CreateCompatibleDC(null_mut());
             if h.is_null() {
-                return last_error();
+                return Error::last();
             }
             h
         };

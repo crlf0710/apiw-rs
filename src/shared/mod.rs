@@ -79,7 +79,7 @@ pub fn exe_instance() -> HINSTANCE {
     unsafe { winapi::um::libloaderapi::GetModuleHandleW(null_mut()) }
 }
 
-pub use wio::error::last_error;
+pub use wio::error::Error;
 pub use wio::Result;
 
 #[derive(Debug)]
@@ -88,7 +88,7 @@ pub struct CommDlgErr(pub(crate) u32);
 pub type CommDlgResult<T> = ::std::result::Result<T, CommDlgErr>;
 
 pub fn maybe_last_error<T, D: FnOnce() -> T>(f: D) -> Result<T> {
-    let err = last_error();
+    let err = Error::last();
     let code = if let Err(ref err) = err {
         err.code()
     } else {
@@ -107,33 +107,33 @@ pub trait OkOrLastError<T> {
 
 impl<T> OkOrLastError<T> for Option<T> {
     fn ok_or_last_error(self) -> Result<T> {
-        use wio::error::last_error;
+        use wio::error::Error;
         if let Some(v) = self {
             Ok(v)
         } else {
-            last_error()
+            Error::last()
         }
     }
 }
 
 impl<T> OkOrLastError<*mut T> for *mut T {
     fn ok_or_last_error(self) -> Result<*mut T> {
-        use wio::error::last_error;
+        use wio::error::Error;
         if !self.is_null() {
             Ok(self)
         } else {
-            last_error()
+            Error::last()
         }
     }
 }
 
 impl<T> OkOrLastError<*const T> for *const T {
     fn ok_or_last_error(self) -> Result<*const T> {
-        use wio::error::last_error;
+        use wio::error::Error;
         if !self.is_null() {
             Ok(self)
         } else {
-            last_error()
+            Error::last()
         }
     }
 }
@@ -190,11 +190,11 @@ impl<'a, D: ManagedData + 'a> Clone for ManagedEntity<D, strategy::LocalRc<'a>> 
 }
 
 pub mod strategy {
-    use std::marker::PhantomData;
-    use std::rc::Rc;
     use crate::shared::ManagedData;
     use crate::shared::ManagedEntity;
     use crate::shared::ManagedStrategy;
+    use std::marker::PhantomData;
+    use std::rc::Rc;
 
     #[derive(Clone)]
     pub struct Foreign;
@@ -322,16 +322,13 @@ impl CWideStringSeq {
     }
 
     pub fn iter_wide_null(&self) -> CWideStringSeqIter {
-        CWideStringSeqIter {
-            seq: self,
-            pos: 0
-        }
+        CWideStringSeqIter { seq: self, pos: 0 }
     }
 }
 
 pub struct CWideStringSeqIter<'a> {
     seq: &'a CWideStringSeq,
-    pos: usize
+    pos: usize,
 }
 
 impl<'a> Iterator for CWideStringSeqIter<'a> {
@@ -339,7 +336,9 @@ impl<'a> Iterator for CWideStringSeqIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.pos < self.seq.0.len() {
-            let next_zero_pos = ((self.seq.0)[self.pos..]).iter().position(|&c| c == 0)
+            let next_zero_pos = ((self.seq.0)[self.pos..])
+                .iter()
+                .position(|&c| c == 0)
                 .expect("Data is inconsistent");
             let val = Some(&self.seq.0[(self.pos)..(self.pos + next_zero_pos + 1)]);
             self.pos = self.pos + next_zero_pos + 1;
@@ -349,6 +348,3 @@ impl<'a> Iterator for CWideStringSeqIter<'a> {
         }
     }
 }
-
-
-

@@ -1,19 +1,19 @@
-use winapi::shared::minwindef::UINT;
-use winapi::shared::minwindef::DWORD;
-use winapi::ctypes::c_int;
-use wio::error::last_error;
-use wio::Result;
 use derive_more::BitOr;
+use winapi::ctypes::c_int;
+use winapi::shared::minwindef::DWORD;
+use winapi::shared::minwindef::UINT;
+use wio::error::Error;
+use wio::Result;
 
 use std::path::PathBuf;
 
+use crate::shared::booleanize;
 use crate::shared::CWideString;
 use crate::shared::CWideStringSeq;
-use crate::shared::ManagedStrategy;
-use crate::shared::booleanize;
 use crate::shared::CommDlgResult;
-use crate::windows_subsystem::window::WindowInner;
+use crate::shared::ManagedStrategy;
 use crate::windows_subsystem::window::AnyWindow;
+use crate::windows_subsystem::window::WindowInner;
 
 pub struct MessageBoxBuilder<'a> {
     parent: Option<&'a WindowInner>,
@@ -26,13 +26,13 @@ pub struct MessageBoxBuilder<'a> {
 pub struct MessageBoxResult(c_int);
 
 impl MessageBoxResult {
-    const OK : MessageBoxResult = MessageBoxResult(winapi::um::winuser::IDOK);
-    const YES : MessageBoxResult = MessageBoxResult(winapi::um::winuser::IDYES);
-    const NO : MessageBoxResult = MessageBoxResult(winapi::um::winuser::IDNO);
-    const ABORT : MessageBoxResult = MessageBoxResult(winapi::um::winuser::IDABORT);
-    const RETRY : MessageBoxResult = MessageBoxResult(winapi::um::winuser::IDRETRY);
-    const IGNORE : MessageBoxResult = MessageBoxResult(winapi::um::winuser::IDIGNORE);
-    const CANCEL : MessageBoxResult = MessageBoxResult(winapi::um::winuser::IDCANCEL);
+    const OK: MessageBoxResult = MessageBoxResult(winapi::um::winuser::IDOK);
+    const YES: MessageBoxResult = MessageBoxResult(winapi::um::winuser::IDYES);
+    const NO: MessageBoxResult = MessageBoxResult(winapi::um::winuser::IDNO);
+    const ABORT: MessageBoxResult = MessageBoxResult(winapi::um::winuser::IDABORT);
+    const RETRY: MessageBoxResult = MessageBoxResult(winapi::um::winuser::IDRETRY);
+    const IGNORE: MessageBoxResult = MessageBoxResult(winapi::um::winuser::IDIGNORE);
+    const CANCEL: MessageBoxResult = MessageBoxResult(winapi::um::winuser::IDCANCEL);
 }
 
 impl<'a> MessageBoxBuilder<'a> {
@@ -67,7 +67,7 @@ impl<'a> MessageBoxBuilder<'a> {
                 self.style,
             );
             if r == 0 {
-                return last_error();
+                return Error::last();
             }
             Ok(MessageBoxResult(r))
         }
@@ -78,19 +78,26 @@ impl<'a> MessageBoxBuilder<'a> {
 pub struct OpenFileDialogFlags(DWORD);
 
 impl OpenFileDialogFlags {
-    pub const SHOW_HELP: OpenFileDialogFlags = OpenFileDialogFlags(::winapi::um::commdlg::OFN_SHOWHELP);
-    pub const EXPLORER: OpenFileDialogFlags = OpenFileDialogFlags(::winapi::um::commdlg::OFN_EXPLORER);
-    pub const FILE_MUST_EXIST: OpenFileDialogFlags = OpenFileDialogFlags(::winapi::um::commdlg::OFN_FILEMUSTEXIST);
-    pub const PATH_MUST_EXIST: OpenFileDialogFlags = OpenFileDialogFlags(::winapi::um::commdlg::OFN_PATHMUSTEXIST);
+    pub const SHOW_HELP: OpenFileDialogFlags =
+        OpenFileDialogFlags(::winapi::um::commdlg::OFN_SHOWHELP);
+    pub const EXPLORER: OpenFileDialogFlags =
+        OpenFileDialogFlags(::winapi::um::commdlg::OFN_EXPLORER);
+    pub const FILE_MUST_EXIST: OpenFileDialogFlags =
+        OpenFileDialogFlags(::winapi::um::commdlg::OFN_FILEMUSTEXIST);
+    pub const PATH_MUST_EXIST: OpenFileDialogFlags =
+        OpenFileDialogFlags(::winapi::um::commdlg::OFN_PATHMUSTEXIST);
 }
 
 #[derive(BitOr)]
 pub struct SaveFileDialogFlags(DWORD);
 
 impl SaveFileDialogFlags {
-    pub const SHOW_HELP: SaveFileDialogFlags = SaveFileDialogFlags(::winapi::um::commdlg::OFN_SHOWHELP);
-    pub const EXPLORER: SaveFileDialogFlags = SaveFileDialogFlags(::winapi::um::commdlg::OFN_EXPLORER);
-    pub const PATH_MUST_EXIST: SaveFileDialogFlags = SaveFileDialogFlags(::winapi::um::commdlg::OFN_PATHMUSTEXIST);
+    pub const SHOW_HELP: SaveFileDialogFlags =
+        SaveFileDialogFlags(::winapi::um::commdlg::OFN_SHOWHELP);
+    pub const EXPLORER: SaveFileDialogFlags =
+        SaveFileDialogFlags(::winapi::um::commdlg::OFN_EXPLORER);
+    pub const PATH_MUST_EXIST: SaveFileDialogFlags =
+        SaveFileDialogFlags(::winapi::um::commdlg::OFN_PATHMUSTEXIST);
 }
 
 /*
@@ -133,7 +140,7 @@ impl<'b> OpenFileDialogBuilder<'b> {
         OpenFileDialogBuilder {
             parent: None,
             default_extension: None,
-            flags: OpenFileDialogFlags(0)
+            flags: OpenFileDialogFlags(0),
         }
     }
 
@@ -153,14 +160,14 @@ impl<'b> OpenFileDialogBuilder<'b> {
     }
 
     pub fn show_dialog(mut self) -> CommDlgResult<Option<PathBuf>> {
-        use winapi::um::commdlg::GetOpenFileNameW;
-        use winapi::um::commdlg::OPENFILENAMEW;
+        use crate::shared::CommDlgErr;
+        use std::mem::size_of_val;
+        use std::mem::zeroed;
         use winapi::shared::minwindef::MAX_PATH;
         use winapi::um::commdlg::CommDlgExtendedError;
-        use crate::shared::CommDlgErr;
+        use winapi::um::commdlg::GetOpenFileNameW;
+        use winapi::um::commdlg::OPENFILENAMEW;
         use wio::wide::FromWide;
-        use std::mem::zeroed;
-        use std::mem::size_of_val;
         unsafe {
             const BUFFER_SIZE: usize = MAX_PATH as usize;
             let mut output_string = vec![0u16; BUFFER_SIZE + 1];
@@ -204,7 +211,6 @@ OpenFileDialogFlags::EXPLORER
 .show_dialog()
 */
 
-
 pub struct SaveFileDialogBuilder<'b> {
     parent: Option<&'b WindowInner>,
     default_extension: Option<CWideString>,
@@ -216,7 +222,7 @@ impl<'b> SaveFileDialogBuilder<'b> {
         SaveFileDialogBuilder {
             parent: None,
             default_extension: None,
-            flags: SaveFileDialogFlags(0)
+            flags: SaveFileDialogFlags(0),
         }
     }
 
@@ -236,14 +242,14 @@ impl<'b> SaveFileDialogBuilder<'b> {
     }
 
     pub fn show_dialog(mut self) -> CommDlgResult<Option<PathBuf>> {
-        use winapi::um::commdlg::GetSaveFileNameW;
-        use winapi::um::commdlg::OPENFILENAMEW;
+        use crate::shared::CommDlgErr;
+        use std::mem::size_of_val;
+        use std::mem::zeroed;
         use winapi::shared::minwindef::MAX_PATH;
         use winapi::um::commdlg::CommDlgExtendedError;
-        use crate::shared::CommDlgErr;
+        use winapi::um::commdlg::GetSaveFileNameW;
+        use winapi::um::commdlg::OPENFILENAMEW;
         use wio::wide::FromWide;
-        use std::mem::zeroed;
-        use std::mem::size_of_val;
         unsafe {
             const BUFFER_SIZE: usize = MAX_PATH as usize;
             let mut output_string = vec![0u16; BUFFER_SIZE + 1];

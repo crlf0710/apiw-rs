@@ -1,3 +1,7 @@
+use crate::{maybe_last_error, Error, Result};
+use bitflags::bitflags;
+use derive_more::Into;
+use log::warn;
 use winapi;
 use winapi::ctypes::c_int;
 use winapi::shared::basetsd::UINT_PTR;
@@ -10,10 +14,6 @@ use winapi::shared::windef::HICON;
 use winapi::shared::windef::HMENU;
 use winapi::shared::windef::HWND;
 use winapi::um::winuser::WNDPROC;
-use bitflags::bitflags;
-use log::warn;
-use derive_more::Into;
-use crate::{last_error, maybe_last_error, Result};
 
 use crate::shared::booleanize;
 use crate::shared::exe_instance;
@@ -57,7 +57,7 @@ impl ManagedData for WindowClassInner {
         unsafe {
             let succeeded = booleanize(UnregisterClassW(self.as_ptr_or_atom_ptr(), exe_instance()));
             if !succeeded {
-                warn!(target: "apiw", "Failed to cleanup {}, last error: {:?}", "WindowClass", last_error::<()>());
+                warn!(target: "apiw", "Failed to cleanup {}, last error: {:?}", "WindowClass", Error::last::<()>());
             }
         }
     }
@@ -229,9 +229,8 @@ impl WindowClassBuilder {
         use winapi::um::winuser::LoadIconW;
         let instance = shared::exe_instance();
 
-        self.icon.0 = Some(unsafe {
-            LoadIconW(instance, ResourceIDOrIDString::ID(id).as_ptr_or_int_ptr())
-        });
+        self.icon.0 =
+            Some(unsafe { LoadIconW(instance, ResourceIDOrIDString::ID(id).as_ptr_or_int_ptr()) });
         self.icon.1 = self.icon.0;
         self
     }
@@ -269,7 +268,7 @@ impl WindowClassBuilder {
             };
             let h = RegisterClassExW(&wcex);
             if h == 0 {
-                return last_error();
+                return Error::last();
             }
             h
         };
@@ -278,24 +277,24 @@ impl WindowClassBuilder {
 }
 
 /*
-	WNDCLASSEX wcex;
+WNDCLASSEX wcex;
 
-	wcex.cbSize = sizeof(WNDCLASSEX);
+wcex.cbSize = sizeof(WNDCLASSEX);
 
-	wcex.style			= CS_HREDRAW | CS_VREDRAW;
-	wcex.lpfnWndProc	= WndProc;
-	wcex.cbClsExtra		= 0;
-	wcex.cbWndExtra		= 0;
-	wcex.hInstance		= hInstance;
-	wcex.hIcon			= LoadIcon(hInstance, MAKEINTRESOURCE(IDI_CHARLESMINE));
-	wcex.hCursor		= LoadCursor(NULL, IDC_ARROW);
-	wcex.hbrBackground	= (HBRUSH)(COLOR_BTNFACE+1);
-	wcex.lpszMenuName	= MAKEINTRESOURCE(IDC_CHARLESMINE);
-	wcex.lpszClassName	= szWindowClass;
-	wcex.hIconSm		= wcex.hIcon;
+wcex.style			= CS_HREDRAW | CS_VREDRAW;
+wcex.lpfnWndProc	= WndProc;
+wcex.cbClsExtra		= 0;
+wcex.cbWndExtra		= 0;
+wcex.hInstance		= hInstance;
+wcex.hIcon			= LoadIcon(hInstance, MAKEINTRESOURCE(IDI_CHARLESMINE));
+wcex.hCursor		= LoadCursor(NULL, IDC_ARROW);
+wcex.hbrBackground	= (HBRUSH)(COLOR_BTNFACE+1);
+wcex.lpszMenuName	= MAKEINTRESOURCE(IDC_CHARLESMINE);
+wcex.lpszClassName	= szWindowClass;
+wcex.hIconSm		= wcex.hIcon;
 
-	return RegisterClassEx(&wcex);
-    */
+return RegisterClassEx(&wcex);
+*/
 
 enum MenuOrChildWindowId {
     Menu(HMENU),
@@ -332,7 +331,7 @@ impl ManagedData for WindowInner {
         unsafe {
             let succeeded = booleanize(DestroyWindow(self.raw_handle()));
             if !succeeded {
-                warn!(target: "apiw", "Failed to cleanup {}, last error: {:?}", "AnyWindow", last_error::<()>());
+                warn!(target: "apiw", "Failed to cleanup {}, last error: {:?}", "AnyWindow", Error::last::<()>());
             }
         }
     }
@@ -400,7 +399,7 @@ impl<'a, 'b> WindowBuilder<'a, 'b> {
                 self.param,
             );
             if h.is_null() {
-                return last_error();
+                return Error::last();
             };
             h
         };
@@ -553,7 +552,7 @@ impl<T: ManagedStrategy> AnyWindow<T> {
                 revert_booleanize(has_menu),
                 exstyles.bits(),
             )) {
-                return last_error();
+                return Error::last();
             }
         }
         Ok(rect_data.into())
@@ -593,7 +592,7 @@ impl<T: ManagedStrategy> AnyWindow<T> {
                 size.0.cy,
                 full_flags,
             )) {
-                return last_error();
+                return Error::last();
             }
         }
         Ok(self)
@@ -602,10 +601,8 @@ impl<T: ManagedStrategy> AnyWindow<T> {
     pub fn destroy(&self) -> Result<()> {
         use winapi::um::winuser::DestroyWindow;
         unsafe {
-            if !booleanize(DestroyWindow(
-                self.data_ref().raw_handle()
-            )) {
-                return last_error();
+            if !booleanize(DestroyWindow(self.data_ref().raw_handle())) {
+                return Error::last();
             }
         }
         Ok(())
@@ -623,7 +620,6 @@ pub struct WindowProcRequestArgs {
     pub wparam: WPARAM,
     pub lparam: LPARAM,
 }
-
 
 pub struct CreateEventArgs<'a>(pub &'a WindowProcRequestArgs);
 
@@ -706,7 +702,6 @@ impl<'a> CommandEventArgs<'a> {
     }
 }
 
-
 pub struct WindowProcRequest<'a> {
     pub hwnd: HWND,
     pub args: WindowProcRequestArgs,
@@ -715,8 +710,8 @@ pub struct WindowProcRequest<'a> {
 
 impl<'a> WindowProcRequest<'a> {
     pub fn route_create<F>(&mut self, f: F) -> &mut Self
-        where
-            F: for<'r, 's> FnOnce(&'r ForeignWindow, CreateEventArgs<'s>) -> Result<bool>,
+    where
+        F: for<'r, 's> FnOnce(&'r ForeignWindow, CreateEventArgs<'s>) -> Result<bool>,
     {
         use winapi::um::winuser::WM_CREATE;
         if self.args.msg == WM_CREATE {
@@ -786,8 +781,8 @@ impl<'a> WindowProcRequest<'a> {
     }
 
     pub fn route_destroy<F>(&mut self, f: F) -> &mut Self
-        where
-            F: for<'r> FnOnce(&'r ForeignWindow) -> Result<()>,
+    where
+        F: for<'r> FnOnce(&'r ForeignWindow) -> Result<()>,
     {
         use winapi::um::winuser::WM_DESTROY;
         if self.args.msg == WM_DESTROY {
@@ -809,8 +804,8 @@ impl<'a> WindowProcRequest<'a> {
     }
 
     pub fn route_command<F>(&mut self, f: F) -> &mut Self
-        where
-            F: for<'r, 's> FnOnce(&'r ForeignWindow, CommandEventArgs<'s>) -> Result<()>,
+    where
+        F: for<'r, 's> FnOnce(&'r ForeignWindow, CommandEventArgs<'s>) -> Result<()>,
     {
         use winapi::um::winuser::WM_COMMAND;
         if self.args.msg == WM_COMMAND {
@@ -921,7 +916,7 @@ impl<T: ManagedStrategy> AnyWindow<T> {
                 interval as _,
                 Some(timer_proc),
             ) {
-                return last_error();
+                return Error::last();
             }
         }
         Ok(self)
@@ -970,8 +965,8 @@ impl<T: ManagedStrategy> AnyWindow<T> {
         ForeignWindow::new_from_attached(window)
     }
     pub fn set_captured(window: Option<&ForeignWindow>) -> Result<()> {
-        use winapi::um::winuser::SetCapture;
         use winapi::um::winuser::ReleaseCapture;
+        use winapi::um::winuser::SetCapture;
         if let Some(wnd) = window {
             unsafe {
                 let h = wnd.data_ref().raw_handle();
@@ -983,15 +978,15 @@ impl<T: ManagedStrategy> AnyWindow<T> {
                 if booleanize(ReleaseCapture()) {
                     Ok(())
                 } else {
-                    last_error()
+                    Error::last()
                 }
             }
         }
     }
 
     pub fn swap_captured(window: &mut Option<ForeignWindow>) -> Result<()> {
-        use winapi::um::winuser::SetCapture;
         use winapi::um::winuser::ReleaseCapture;
+        use winapi::um::winuser::SetCapture;
         if let Some(wnd) = window.take() {
             unsafe {
                 let h = wnd.data_ref().raw_handle();
@@ -1010,7 +1005,7 @@ impl<T: ManagedStrategy> AnyWindow<T> {
                         *window = Some(wnd);
                         Ok(())
                     } else {
-                        last_error()
+                        Error::last()
                     }
                 }
             } else {

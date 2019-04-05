@@ -1,9 +1,9 @@
+use log::warn;
 use winapi::shared::windef::HDC;
 use winapi::shared::windef::HWND;
 use winapi::um::winuser::PAINTSTRUCT;
-use wio::error::last_error;
+use wio::error::Error;
 use wio::Result;
-use log::warn;
 
 use crate::shared::booleanize;
 use crate::shared::strategy;
@@ -29,9 +29,9 @@ impl PaintDeviceContextInner {
     }
 }
 
+use crate::shared::ManagedStrategy;
 use std::ops::Deref;
 use std::ops::DerefMut;
-use crate::shared::ManagedStrategy;
 
 impl<T: ManagedStrategy> Deref for AnyPaintDeviceContext<T> {
     type Target = LocalDeviceContext;
@@ -79,7 +79,7 @@ impl<T: ManagedStrategy> AnyWindow<T> {
             let mut paint_structure = zeroed();
             let hdc = BeginPaint(hwnd, &mut paint_structure);
             if hdc.is_null() {
-                return last_error();
+                return Error::last();
             };
             PaintDeviceContextInner {
                 window: hwnd,
@@ -110,7 +110,7 @@ impl<T: ManagedStrategy> AnyWindow<T> {
         use winapi::um::winuser::InvalidateRect;
         unsafe {
             if !booleanize(InvalidateRect(self.data_ref().raw_handle(), null(), FALSE)) {
-                return last_error();
+                return Error::last();
             }
         }
         Ok(self)
@@ -122,7 +122,7 @@ impl<T: ManagedStrategy> AnyWindow<T> {
         use winapi::um::winuser::InvalidateRect;
         unsafe {
             if !booleanize(InvalidateRect(self.data_ref().raw_handle(), null(), TRUE)) {
-                return last_error();
+                return Error::last();
             }
         }
         Ok(self)

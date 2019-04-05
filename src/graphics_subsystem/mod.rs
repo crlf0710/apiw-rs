@@ -1,6 +1,6 @@
+use derive_more::Into;
 use winapi;
 use winapi::shared::minwindef::DWORD;
-use derive_more::Into;
 
 use crate::shared::clamp_i32_to_positive_i32;
 use crate::shared::clamp_isize_to_i32;

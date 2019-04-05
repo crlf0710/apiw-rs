@@ -1,9 +1,9 @@
-use wio::error::last_error;
-use wio::Result;
+use crate::graphics_subsystem::device_context::ScopedDeviceContext;
+use crate::shared::booleanize;
 use winapi::ctypes::c_int;
 use winapi::shared::minwindef::FLOAT;
-use crate::shared::booleanize;
-use crate::graphics_subsystem::device_context::ScopedDeviceContext;
+use wio::error::Error;
+use wio::Result;
 
 pub struct Transform(winapi::um::wingdi::XFORM);
 
@@ -24,7 +24,6 @@ impl Transform {
     }
 }
 
-
 #[derive(PartialEq)]
 pub struct GraphicsMode(c_int);
 
@@ -39,7 +38,7 @@ impl<'a> ScopedDeviceContext<'a> {
         unsafe {
             let v = SetGraphicsMode(self.data_ref().raw_handle(), graphics_mode.0);
             if v == 0 {
-                return last_error();
+                return Error::last();
             }
         }
         Ok(self)
@@ -50,7 +49,7 @@ impl<'a> ScopedDeviceContext<'a> {
         unsafe {
             let v = SetGraphicsMode(self.data_ref().raw_handle(), graphics_mode.0);
             if v == 0 {
-                return last_error();
+                return Error::last();
             }
             graphics_mode.0 = v;
         }
@@ -58,13 +57,13 @@ impl<'a> ScopedDeviceContext<'a> {
     }
 
     pub fn reset_world_transform(&mut self) -> Result<&mut Self> {
+        use std::ptr::null;
         use winapi::um::wingdi::ModifyWorldTransform;
         use winapi::um::wingdi::MWT_IDENTITY;
-        use std::ptr::null;
         unsafe {
             let v = ModifyWorldTransform(self.data_ref().raw_handle(), null(), MWT_IDENTITY as _);
             if !booleanize(v) {
-                return last_error();
+                return Error::last();
             }
         }
         Ok(self)
@@ -75,33 +74,47 @@ impl<'a> ScopedDeviceContext<'a> {
         unsafe {
             let v = SetWorldTransform(self.data_ref().raw_handle(), &transform.0 as _);
             if !booleanize(v) {
-                return last_error();
+                return Error::last();
             }
         }
         Ok(self)
     }
 
-    pub fn modify_world_transform_left_multiply(&mut self, transform: &Transform) -> Result<&mut Self> {
+    pub fn modify_world_transform_left_multiply(
+        &mut self,
+        transform: &Transform,
+    ) -> Result<&mut Self> {
+        use std::ptr::null;
         use winapi::um::wingdi::ModifyWorldTransform;
         use winapi::um::wingdi::MWT_LEFTMULTIPLY;
-        use std::ptr::null;
         unsafe {
-            let v = ModifyWorldTransform(self.data_ref().raw_handle(), &transform.0 as _, MWT_LEFTMULTIPLY as _);
+            let v = ModifyWorldTransform(
+                self.data_ref().raw_handle(),
+                &transform.0 as _,
+                MWT_LEFTMULTIPLY as _,
+            );
             if !booleanize(v) {
-                return last_error();
+                return Error::last();
             }
         }
         Ok(self)
     }
-    
-    pub fn modify_world_transform_right_multiply(&mut self, transform: &Transform) -> Result<&mut Self> {
+
+    pub fn modify_world_transform_right_multiply(
+        &mut self,
+        transform: &Transform,
+    ) -> Result<&mut Self> {
+        use std::ptr::null;
         use winapi::um::wingdi::ModifyWorldTransform;
         use winapi::um::wingdi::MWT_RIGHTMULTIPLY;
-        use std::ptr::null;
         unsafe {
-            let v = ModifyWorldTransform(self.data_ref().raw_handle(), &transform.0 as _, MWT_RIGHTMULTIPLY as _);
+            let v = ModifyWorldTransform(
+                self.data_ref().raw_handle(),
+                &transform.0 as _,
+                MWT_RIGHTMULTIPLY as _,
+            );
             if !booleanize(v) {
-                return last_error();
+                return Error::last();
             }
         }
         Ok(self)

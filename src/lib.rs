@@ -15,4 +15,4 @@ pub mod full_windows_api {
     pub use winapi::*;
 }
 
-pub use crate::shared::{Result, last_error, maybe_last_error};
+pub use crate::shared::{maybe_last_error, Error, Result};
