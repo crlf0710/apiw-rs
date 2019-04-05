@@ -10,6 +10,9 @@ use winapi::shared::windef::HICON;
 use winapi::shared::windef::HMENU;
 use winapi::shared::windef::HWND;
 use winapi::um::winuser::WNDPROC;
+use bitflags::bitflags;
+use log::warn;
+use derive_more::Into;
 use crate::{last_error, maybe_last_error, Result};
 
 use crate::shared::booleanize;

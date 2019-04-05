@@ -1,5 +1,7 @@
 use std::cell::Cell;
 use std::rc::Rc;
+use log::warn;
+use derive_more::Into;
 
 use winapi::ctypes::c_int;
 use winapi::shared::minwindef::HRGN;

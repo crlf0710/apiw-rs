@@ -1,5 +1,6 @@
 use std::mem::uninitialized;
 use std::ptr::null_mut;
+use derive_more::From;
 use winapi::shared::minwindef::LRESULT;
 use winapi::shared::minwindef::{BOOL, DWORD, UINT};
 use winapi::shared::windef::HWND;

@@ -1,8 +1,9 @@
-use num_traits::FromPrimitive;
 use winapi::shared::minwindef::UINT;
 use winapi::shared::minwindef::DWORD;
+use winapi::ctypes::c_int;
 use wio::error::last_error;
 use wio::Result;
+use derive_more::BitOr;
 
 use std::path::PathBuf;
 
@@ -21,16 +22,17 @@ pub struct MessageBoxBuilder<'a> {
     style: UINT,
 }
 
-#[repr(i32)]
-#[derive(Primitive)]
-pub enum MessageBoxResult {
-    OK = ::winapi::um::winuser::IDOK,
-    YES = ::winapi::um::winuser::IDYES,
-    NO = ::winapi::um::winuser::IDNO,
-    ABORT = ::winapi::um::winuser::IDABORT,
-    RETRY = ::winapi::um::winuser::IDRETRY,
-    IGNORE = ::winapi::um::winuser::IDIGNORE,
-    CANCEL = ::winapi::um::winuser::IDCANCEL,
+#[derive(PartialEq)]
+pub struct MessageBoxResult(c_int);
+
+impl MessageBoxResult {
+    const OK : MessageBoxResult = MessageBoxResult(winapi::um::winuser::IDOK);
+    const YES : MessageBoxResult = MessageBoxResult(winapi::um::winuser::IDYES);
+    const NO : MessageBoxResult = MessageBoxResult(winapi::um::winuser::IDNO);
+    const ABORT : MessageBoxResult = MessageBoxResult(winapi::um::winuser::IDABORT);
+    const RETRY : MessageBoxResult = MessageBoxResult(winapi::um::winuser::IDRETRY);
+    const IGNORE : MessageBoxResult = MessageBoxResult(winapi::um::winuser::IDIGNORE);
+    const CANCEL : MessageBoxResult = MessageBoxResult(winapi::um::winuser::IDCANCEL);
 }
 
 impl<'a> MessageBoxBuilder<'a> {
@@ -57,18 +59,17 @@ impl<'a> MessageBoxBuilder<'a> {
     pub fn invoke(self) -> Result<MessageBoxResult> {
         use std::ptr::null_mut;
         use winapi::um::winuser::MessageBoxW;
-        let r = unsafe {
-            MessageBoxW(
+        unsafe {
+            let r = MessageBoxW(
                 self.parent.map_or_else(null_mut, WindowInner::raw_handle),
                 self.message.as_ptr(),
                 self.title.as_ptr(),
                 self.style,
-            )
-        };
-        if let Some(result) = MessageBoxResult::from_i32(r) {
-            Ok(result)
-        } else {
-            last_error()
+            );
+            if r == 0 {
+                return last_error();
+            }
+            Ok(MessageBoxResult(r))
         }
     }
 }

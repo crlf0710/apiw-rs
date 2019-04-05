@@ -9,6 +9,4 @@ bitflags = "1"
 winapi = {version = "0.3", features = ["winuser", "windowsx", "libloaderapi", "winnls", "commdlg"]}
 wio = "0.2"
 derive_more = "0.11"
-enum-primitive-derive = "0.1"
-num-traits = "0.2"
 log = "0.4"

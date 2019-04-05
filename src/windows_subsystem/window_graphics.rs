@@ -3,6 +3,7 @@ use winapi::shared::windef::HWND;
 use winapi::um::winuser::PAINTSTRUCT;
 use wio::error::last_error;
 use wio::Result;
+use log::warn;
 
 use crate::shared::booleanize;
 use crate::shared::strategy;
