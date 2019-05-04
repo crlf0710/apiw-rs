@@ -165,7 +165,7 @@ pub type Bitmap = ManagedEntity<BitmapInner, strategy::LocalRc<'static>>;
 
 impl Bitmap {
     pub fn load_from_resource_id(id: WORD) -> Result<Bitmap> {
-        use crate::windows_subsystem::window::ResourceIDOrIDString;
+        use crate::windows_subsystem::ResourceIDOrIDString;
         use winapi::um::winuser::LoadBitmapW;
         let resource = ResourceIDOrIDString::ID(id);
         let bitmap = unsafe {

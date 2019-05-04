@@ -75,20 +75,7 @@ impl<T: ManagedStrategy> ManagedEntity<WindowClassInner, T> {
     }
 }
 
-pub(crate) enum ResourceIDOrIDString {
-    ID(WORD),
-    String(CWideString),
-}
-
-impl ResourceIDOrIDString {
-    pub(crate) fn as_ptr_or_int_ptr(&self) -> *const u16 {
-        use winapi::um::winuser::MAKEINTRESOURCEW;
-        match self {
-            ResourceIDOrIDString::ID(id) => MAKEINTRESOURCEW(*id),
-            ResourceIDOrIDString::String(str) => str.as_ptr(),
-        }
-    }
-}
+use super::ResourceIDOrIDString;
 
 #[derive(Into)]
 pub struct SysColor(c_int);
