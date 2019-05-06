@@ -79,8 +79,20 @@ pub fn exe_instance() -> HINSTANCE {
     unsafe { winapi::um::libloaderapi::GetModuleHandleW(null_mut()) }
 }
 
-pub use wio::error::Error;
-pub use wio::Result;
+use winapi::shared::minwindef::DWORD;
+use winapi::um::errhandlingapi::GetLastError;
+
+#[derive(Clone, Copy, Debug)]
+pub struct Error(DWORD);
+
+impl Error {
+    pub fn code(&self) -> u32 { self.0 }
+    pub fn last<T>() -> Result<T> {
+        Err(Error(unsafe { GetLastError() }))
+    }
+}
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug)]
 pub struct CommDlgErr(pub(crate) u32);
@@ -101,13 +113,18 @@ pub fn maybe_last_error<T, D: FnOnce() -> T>(f: D) -> Result<T> {
     }
 }
 
+pub fn internal_error<T>() -> Result<T> {
+    use winapi::shared::winerror::ERROR_INTERNAL_ERROR;
+    Err(Error(ERROR_INTERNAL_ERROR))
+}
+
 pub trait OkOrLastError<T> {
     fn ok_or_last_error(self) -> Result<T>;
 }
 
 impl<T> OkOrLastError<T> for Option<T> {
     fn ok_or_last_error(self) -> Result<T> {
-        use wio::error::Error;
+        use crate::shared::Error;
         if let Some(v) = self {
             Ok(v)
         } else {
@@ -118,7 +135,7 @@ impl<T> OkOrLastError<T> for Option<T> {
 
 impl<T> OkOrLastError<*mut T> for *mut T {
     fn ok_or_last_error(self) -> Result<*mut T> {
-        use wio::error::Error;
+        use crate::shared::Error;
         if !self.is_null() {
             Ok(self)
         } else {
@@ -129,7 +146,7 @@ impl<T> OkOrLastError<*mut T> for *mut T {
 
 impl<T> OkOrLastError<*const T> for *const T {
     fn ok_or_last_error(self) -> Result<*const T> {
-        use wio::error::Error;
+        use crate::shared::Error;
         if !self.is_null() {
             Ok(self)
         } else {

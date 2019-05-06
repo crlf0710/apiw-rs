@@ -2,8 +2,8 @@ use derive_more::BitOr;
 use winapi::ctypes::c_int;
 use winapi::shared::minwindef::DWORD;
 use winapi::shared::minwindef::UINT;
-use wio::error::Error;
-use wio::Result;
+use crate::shared::Error;
+use crate::shared::Result;
 
 use std::path::PathBuf;
 

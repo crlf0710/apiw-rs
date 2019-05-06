@@ -10,8 +10,8 @@ use winapi::shared::windef::{HBITMAP, HBRUSH, HFONT, HPALETTE, HPEN};
 use winapi::um::wingdi::{
     PS_DASH, PS_DASHDOT, PS_DASHDOTDOT, PS_DOT, PS_INSIDEFRAME, PS_NULL, PS_SOLID,
 };
-use wio::error::Error;
-use wio::Result;
+use crate::shared::Error;
+use crate::shared::Result;
 
 use crate::graphics_subsystem::device_context::ScopedDeviceContext;
 use crate::graphics_subsystem::RGBColor;

@@ -6,7 +6,9 @@ authors = ["CrLF0710 <crlf0710@gmail.com>"]
 
 [dependencies]
 bitflags = "1"
-winapi = {version = "0.3", features = ["winuser", "windowsx", "libloaderapi", "winnls", "commdlg"]}
-wio = "0.2.2"
 derive_more = "0.11"
 log = "0.4"
+
+[target.'cfg(windows)'.dependencies]
+winapi = {version = "0.3", features = ["winuser", "winerror", "windowsx", "libloaderapi", "winnls", "commdlg"]}
+wio = "0.2.2"

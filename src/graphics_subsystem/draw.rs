@@ -1,5 +1,5 @@
-use wio::error::Error;
-use wio::Result;
+use crate::shared::Error;
+use crate::shared::Result;
 
 use crate::graphics_subsystem::device_context::ScopedDeviceContext;
 use crate::graphics_subsystem::Point;

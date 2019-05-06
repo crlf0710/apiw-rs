@@ -1,7 +1,7 @@
 use log::warn;
 use winapi::shared::windef::HDC;
-use wio::error::Error;
-use wio::Result;
+use crate::shared::Error;
+use crate::shared::Result;
 
 use crate::shared::booleanize;
 use crate::shared::strategy;

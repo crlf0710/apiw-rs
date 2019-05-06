@@ -2,8 +2,8 @@ use log::warn;
 use winapi::shared::windef::HDC;
 use winapi::shared::windef::HWND;
 use winapi::um::winuser::PAINTSTRUCT;
-use wio::error::Error;
-use wio::Result;
+use crate::shared::Error;
+use crate::shared::Result;
 
 use crate::shared::booleanize;
 use crate::shared::strategy;

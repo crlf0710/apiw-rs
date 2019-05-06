@@ -2,8 +2,8 @@ use crate::graphics_subsystem::device_context::ScopedDeviceContext;
 use crate::shared::booleanize;
 use winapi::ctypes::c_int;
 use winapi::shared::minwindef::FLOAT;
-use wio::error::Error;
-use wio::Result;
+use crate::shared::Error;
+use crate::shared::Result;
 
 pub struct Transform(winapi::um::wingdi::XFORM);
 

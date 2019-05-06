@@ -6,8 +6,8 @@ use winapi::shared::minwindef::{BOOL, DWORD, UINT};
 use winapi::shared::windef::HWND;
 use winapi::um::winnt::LONG;
 use winapi::um::winuser::MSG;
-use wio::error::Error;
-use wio::Result;
+use crate::shared::Error;
+use crate::shared::Result;
 
 use crate::shared::booleanize;
 
@@ -188,5 +188,12 @@ impl ForeignMessageLoop {
     pub fn last_message_time(&mut self) -> MessageTime {
         use winapi::um::winuser::GetMessageTime;
         unsafe { GetMessageTime().into() }
+    }
+
+    pub fn request_quit() {
+        use winapi::um::winuser::PostQuitMessage;
+        unsafe {
+            PostQuitMessage(0);
+        }        
     }
 }
