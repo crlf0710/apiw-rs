@@ -197,12 +197,21 @@ macro_rules! winapi_rgb_value {
 
 impl RGBColor {
     pub const BLACK: RGBColor = RGBColor(winapi_rgb_value!(0, 0, 0));
-    pub const WHITE: RGBColor = RGBColor(winapi_rgb_value!(255, 255, 255));
+    pub const MAROON: RGBColor = RGBColor(winapi_rgb_value!(128, 0, 0));
+    pub const GREEN: RGBColor = RGBColor(winapi_rgb_value!(0, 128, 0));
+    pub const NAVY: RGBColor = RGBColor(winapi_rgb_value!(0, 0, 128));
+    pub const OLIVE: RGBColor = RGBColor(winapi_rgb_value!(128, 128, 0));
+    pub const TEAL: RGBColor = RGBColor(winapi_rgb_value!(0, 128, 128));
+    pub const PURPLE: RGBColor = RGBColor(winapi_rgb_value!(128, 0, 128));
     pub const GRAY: RGBColor = RGBColor(winapi_rgb_value!(128, 128, 128));
+    pub const SILVER: RGBColor = RGBColor(winapi_rgb_value!(192, 192, 192));
     pub const RED: RGBColor = RGBColor(winapi_rgb_value!(255, 0, 0));
-    pub const GREEN: RGBColor = RGBColor(winapi_rgb_value!(0, 255, 0));
+    pub const LIME: RGBColor = RGBColor(winapi_rgb_value!(0, 255, 0));
     pub const BLUE: RGBColor = RGBColor(winapi_rgb_value!(0, 0, 255));
-    pub const MAGENTA: RGBColor = RGBColor(winapi_rgb_value!(255, 0, 255));
+    pub const YELLOW: RGBColor = RGBColor(winapi_rgb_value!(255, 255, 0));
+    pub const AQUA: RGBColor = RGBColor(winapi_rgb_value!(0, 255, 255));
+    pub const FUCHSIA: RGBColor = RGBColor(winapi_rgb_value!(255, 0, 255));
+    pub const WHITE: RGBColor = RGBColor(winapi_rgb_value!(255, 255, 255));
 
     pub fn new(red: u8, green: u8, blue: u8) -> RGBColor {
         RGBColor(winapi_rgb_value!(red, green, blue))

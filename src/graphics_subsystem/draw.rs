@@ -5,6 +5,7 @@ use crate::graphics_subsystem::device_context::ScopedDeviceContext;
 use crate::graphics_subsystem::Point;
 use crate::graphics_subsystem::RGBColor;
 use crate::graphics_subsystem::Size;
+use crate::graphics_subsystem::Rect;
 use crate::graphics_subsystem::TenaryROP;
 use crate::shared::booleanize;
 
@@ -109,6 +110,22 @@ impl<'a> ScopedDeviceContext<'a> {
             RGBColor(r)
         };
         *color = old_color;
+        Ok(self)
+    }
+
+    pub fn fill_rect_with_background_color(&mut self, rect: Rect) -> Result<&mut Self> {
+        use winapi::um::wingdi::ExtTextOutW;
+        use winapi::um::wingdi::ETO_OPAQUE;
+        use winapi::shared::windef::RECT;
+        use std::ptr::null_mut;
+        let rect: RECT = rect.into();
+        unsafe {
+            let r = ExtTextOutW(self.data_ref().raw_handle(), 0, 0, ETO_OPAQUE, 
+                &rect as _, null_mut(),  0,  null_mut());
+            if !booleanize(r) {
+                return Error::last();
+            }
+        }
         Ok(self)
     }
 
