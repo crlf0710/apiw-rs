@@ -24,6 +24,10 @@ impl Point {
         })
     }
 
+    pub fn new_from(x: impl Into<isize>, y: impl Into<isize>) -> Self {
+        Self::new(x.into(), y.into())
+    }
+
     pub fn x(&self) -> isize {
         self.0.x as _
     }
@@ -63,6 +67,10 @@ impl Size {
             cx: clamp_usize_to_positive_i32(cx),
             cy: clamp_usize_to_positive_i32(cy),
         })
+    }
+
+    pub fn new_from(cx: impl Into<usize>, cy: impl Into<usize>) -> Self {
+        Self::new(cx.into(), cy.into())
     }
 
     pub fn cx(&self) -> usize {
