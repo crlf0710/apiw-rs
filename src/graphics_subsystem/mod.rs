@@ -103,6 +103,22 @@ impl Rect {
         self.size
     }
 
+    pub fn x(&self) -> isize {
+        self.pos.0.x as _
+    }
+
+    pub fn y(&self) -> isize {
+        self.pos.0.y as _
+    }
+
+    pub fn cx(&self) -> usize {
+        self.size.0.cx as _
+    }
+
+    pub fn cy(&self) -> usize {
+        self.size.0.cy as _
+    }
+
     pub fn top_left(&self) -> Point {
         self.pos
     }
