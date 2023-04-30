@@ -1,13 +1,13 @@
+use crate::shared::Error;
+use crate::shared::Result;
 use derive_more::From;
-use std::mem::uninitialized;
+use std::mem::zeroed;
 use std::ptr::null_mut;
 use winapi::shared::minwindef::LRESULT;
 use winapi::shared::minwindef::{BOOL, DWORD, UINT};
 use winapi::shared::windef::HWND;
 use winapi::um::winnt::LONG;
 use winapi::um::winuser::MSG;
-use crate::shared::Error;
-use crate::shared::Result;
 
 use crate::shared::booleanize;
 
@@ -104,7 +104,7 @@ impl ForeignMessageLoop {
     ) -> Result<QuitOrNormalMsg> {
         use winapi::um::winuser::GetMessageW;
         unsafe {
-            let mut msg: MSG = uninitialized();
+            let mut msg: MSG = zeroed();
             let ret: BOOL = GetMessageW(&mut msg, filter.hwnd, filter.min, filter.max);
             if ret == -1 {
                 Error::last()
@@ -120,7 +120,7 @@ impl ForeignMessageLoop {
     fn peek_internal(&mut self, filter: &MessageFilter, extra_flags: UINT) -> Option<Message> {
         use winapi::um::winuser::PeekMessageW;
         unsafe {
-            let mut msg: MSG = uninitialized();
+            let mut msg: MSG = zeroed();
             let ret: BOOL = PeekMessageW(
                 &mut msg,
                 filter.hwnd,
@@ -194,6 +194,6 @@ impl ForeignMessageLoop {
         use winapi::um::winuser::PostQuitMessage;
         unsafe {
             PostQuitMessage(0);
-        }        
+        }
     }
 }
